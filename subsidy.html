@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PM Surya Ghar subsidy — Wadhwa Solar</title>
+<meta name="description" content="How much rooftop solar subsidy you get, who qualifies, what papers you need, and how Wadhwa Solar files it for you.">
+<link rel="icon" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-head">
+  <div class="head-in">
+    <a class="brand" href="index.html">
+      <svg width="38" height="38" viewBox="0 0 140 140" aria-hidden="true">
+        <g class="spin" stroke="#141414" stroke-width="6" stroke-linecap="round" opacity=".9">
+          <line x1="70" y1="6" x2="70" y2="20"/><line x1="70" y1="122" x2="70" y2="136"/>
+          <line x1="6" y1="71" x2="20" y2="71"/><line x1="122" y1="71" x2="136" y2="71"/>
+          <line x1="24" y1="25" x2="34" y2="35"/><line x1="106" y1="107" x2="116" y2="117"/>
+          <line x1="116" y1="25" x2="106" y2="35"/><line x1="34" y1="107" x2="24" y2="117"/>
+        </g>
+        <circle cx="70" cy="71" r="40" fill="#FFD84D"/>
+        <g fill="none" stroke="#141414" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M45 54 L57 90 L70 66"/><path d="M70 66 L83 90 L95 54"/>
+        </g>
+      </svg>
+      <span><span class="nm">Wadhwa Solar</span><span class="tg">make your roof pay the bijli bill</span></span>
+    </a>
+    <nav class="nav">
+      <a href="index.html">Home</a>
+      <a href="services.html">Services</a>
+      <a href="subsidy.html" class="on">Subsidy</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <a class="callbtn" href="tel:+919817287794">Call 98172 87794</a>
+  </div>
+</header>
+
+<main>
+<section class="scene" style="min-height:clamp(320px,40vh,420px);padding:0">
+  <div class="rays"></div><div class="halo"></div><div class="sun"></div>
+  <div class="roofline"></div>
+  <div class="panel p1"></div><div class="panel p2"></div><div class="panel p3"></div><div class="panel p4"></div>
+  <span class="coin c1">&#8377;</span><span class="coin c2">&#8377;</span><span class="coin c3">&#8377;</span><span class="coin c4">&#8377;</span>
+  <div class="scene-copy">
+    <h1 data-split>Up to &#8377;78,000, straight to your bank.</h1>
+    <p class="lede">The PM Surya Ghar subsidy is real and it is being paid. People miss it on paperwork. We file the whole thing for you.</p>
+    <div class="btnrow"><a class="btn solid" href="contact.html">Check what you qualify for</a></div>
+  </div>
+</section><div class="strip">
+  <div class="wrap">
+    <b id="liveSave">&#8377;0</b>
+    <span>saved on electricity bills by rooftops like yours since you opened this page</span>
+  </div>
+</div>
+
+<section>
+  <div class="wrap reveal">
+    <p class="eyebrow">The slabs</p>
+    <h2>What you get</h2>
+    <table>
+      <thead><tr><th>System size</th><th>Central subsidy</th><th>Roughly suits a bill of</th></tr></thead>
+      <tbody>
+        <tr><td><strong>1 kW</strong></td><td>&#8377;30,000</td><td>&#8377;800 to &#8377;1,200 a month</td></tr>
+        <tr><td><strong>2 kW</strong></td><td>&#8377;60,000</td><td>&#8377;1,500 to &#8377;2,200 a month</td></tr>
+        <tr><td><strong>3 kW and above</strong></td><td>&#8377;78,000 (maximum)</td><td>&#8377;2,500 and up</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:16px">&#8377;30,000 per kW for the first 2 kW and &#8377;18,000 for the third. Nothing extra beyond 3 kW, so a 5 kW home system still receives &#8377;78,000. Housing societies have a separate slab for common-area loads. MNRE can revise these rates, so we confirm the live figure in your written quote.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap reveal">
+    <div class="pmcard">
+      <img src="modi.jpg" alt="Prime Minister Narendra Modi speaking at the Red Fort">
+      <div>
+        <p class="cap">Central government scheme</p>
+        <h3>PM Surya Ghar: Muft Bijli Yojana</h3>
+        <p>Launched by the Government of India to put rooftop solar on one crore homes and cut household electricity bills. Wadhwa Solar registers your application on the national portal, files with UHBVN and follows the claim through to the bank transfer.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap"><div class="calc-wrap reveal">
+    <div class="calc-grid">
+      <div>
+        <p class="eyebrow">Your numbers</p>
+        <h2 style="margin-bottom:.3em">Move the slider to your monthly bill</h2>
+        <p>Then watch what the sun does to it. These are close estimates for our districts; the survey confirms them exactly.</p>
+        <label for="bill">Average monthly electricity bill</label>
+        <div class="bignum" id="billOut">&#8377;3,000</div>
+        <input id="bill" type="range" min="800" max="30000" step="200" value="3000" aria-label="Average monthly electricity bill">
+        <div class="bars">
+          <div class="barlbl"><span>Bill today</span><span id="beforeLbl">&#8377;3,000 a month</span></div>
+          <div class="bar before"><i style="width:100%"></i></div>
+          <div class="barlbl"><span>Bill after solar</span><span id="afterLbl">&#8377;300 a month</span></div>
+          <div class="bar after"><i id="barAfter" style="width:10%"></i></div>
+        </div>
+      </div>
+      <div>
+        <div class="rows">
+          <div><span>Suggested system</span><span id="size">3 kW</span></div>
+          <div><span>Generates roughly</span><span id="units">405 units a month</span></div>
+          <div><span>Project cost</span><span id="cost">&#8377;2,04,000</span></div>
+          <div><span>Government subsidy</span><span id="sub">&#8377;78,000</span></div>
+          <div class="hi"><span>You pay about</span><span id="net">&#8377;1,26,000</span></div>
+          <div><span>Money back in</span><span id="pay">3.9 years</span></div>
+          <div><span>Saved over 25 years</span><span id="save25">&#8377;6,84,000</span></div>
+        </div>
+        <div class="btnrow"><a class="btn solid" href="contact.html">Get my exact numbers</a></div>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <div class="wrap reveal">
+    <p class="eyebrow">Eligibility</p>
+    <h2>Who can apply</h2>
+    <div class="cols" style="margin-top:24px">
+      <div class="card"><h3>Any income level</h3><p>No income limit, no urban or rural restriction. You need a grid connection in your own name.</p></div>
+      <div class="card"><h3>Your own roof</h3><p>Owners apply directly. Tenants need a no-objection letter, since the subsidy is paid to the owner.</p></div>
+      <div class="card"><h3>Enough clear roof</h3><p>About 100 sq ft per kW, shadow-free between 9am and 4pm. We confirm this at the survey.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap reveal">
+    <p class="eyebrow">Documents</p>
+    <h2>Four papers, that is all</h2>
+    <div class="split"><div><span class="idx">01</span></div><div><h3>Latest electricity bill</h3><p>In the applicant's name, from UHBVN. Six months of bills help us size the system.</p></div></div>
+    <div class="split"><div><span class="idx">02</span></div><div><h3>Aadhaar card</h3><p>Linked to the mobile number you will use on the portal.</p></div></div>
+    <div class="split"><div><span class="idx">03</span></div><div><h3>Bank passbook or cancelled cheque</h3><p>Aadhaar-seeded account, because the subsidy is a direct transfer.</p></div></div>
+    <div class="split"><div><span class="idx">04</span></div><div><h3>Ownership proof or NOC</h3><p>Registry, allotment letter, or a signed no-objection letter from the owner.</p></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap reveal">
+    <h2>Common questions</h2>
+    <details><summary>When does the money arrive?</summary><p>Usually 30 to 45 days after the DISCOM inspects the system and you raise the redemption request. It is credited to your bank account, not adjusted against our bill.</p></details>
+    <details><summary>Do I pay full price first?</summary><p>Yes. You pay for the system and the subsidy comes to you afterwards. We can also connect you to rooftop solar loans if you want to spread the cost.</p></details>
+    <details><summary>Why do applications get rejected?</summary><p>Usually the panels or inverter are not on the MNRE ALMM list, the bill is in another family member's name, or the bank account is not Aadhaar-seeded. We check all three before you order anything.</p></details>
+    <details><summary>What happens to extra units?</summary><p>They go to the grid through a net meter and are credited against your consumption. Credits carry forward, so summer surplus covers winter use.</p></details>
+    <details><summary>Is there a Haryana state top-up?</summary><p>State schemes change year to year. We check what is live when you apply and tell you plainly if there is nothing extra.</p></details>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap reveal" style="text-align:center">
+    <p class="eyebrow">First step</p>
+    <h2 style="max-width:20ch;margin:0 auto .4em">Your roof is idle. Put it in the sun.</h2>
+    <p style="margin:0 auto">Free site survey, written quote, subsidy filed by us. If solar does not make sense on your roof, we will say so on the first visit.</p>
+    <div class="btnrow" style="justify-content:center">
+      <a class="btn solid" href="contact.html">Book a free survey</a>
+      <a class="btn ghost" href="tel:+919817287794">Call 98172 87794</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap foot-grid">
+    <div>
+      <strong style="color:#141414">Wadhwa Solar</strong><br>
+      Rooftop solar installation and maintenance<br>
+      Panipat, Karnal and Sonipat, Haryana
+    </div>
+    <div>
+      <a href="tel:+919817287794">+91 98172 87794</a><br>
+      <a href="mailto:hello@wadhwasolar.com">hello@wadhwasolar.com</a><br>
+      <a href="https://wa.me/919817287794">WhatsApp</a>
+    </div>
+    <div>
+      <a href="services.html">Services</a><br>
+      <a href="subsidy.html">Subsidy</a><br>
+      <a href="about.html">About</a><br>
+      <a href="contact.html">Contact</a><br>
+      <a href="privacy.html">Privacy Policy</a><br>
+      <a href="data-deletion.html">Data Deletion</a>
+    </div>
+  </div>
+</footer>
+
+<a class="float" href="https://wa.me/919817287794">WhatsApp us</a>
+<script src="app.js"></script>
+</body>
+</html>
