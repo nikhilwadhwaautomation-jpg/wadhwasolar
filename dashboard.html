@@ -105,6 +105,9 @@
   .pill.factory{background:var(--sun)}
   .pill.business{background:#F2E3C7}
   .pill.hot{background:var(--lime)}
+  .addr{max-width:240px;overflow:hidden;text-overflow:ellipsis}
+  .addr a{font-weight:500}
+  .pending{color:var(--flame);font-size:.86rem}
 
   .toast{position:fixed;right:18px;bottom:18px;background:var(--ink);color:var(--lime);padding:12px 16px;font-weight:600;transform:translateY(120%);transition:transform .25s ease;z-index:10;max-width:320px}
   .toast.show{transform:none}
@@ -182,7 +185,7 @@
       </header>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Phone</th><th>Type</th><th>Stage</th><th>Bill / month</th><th>System</th><th>Net cost</th><th>Last message</th></tr></thead>
+          <thead><tr><th>Name</th><th>Phone</th><th>Type</th><th>Stage</th><th>Address</th><th>Bill / month</th><th>System</th><th>Net cost</th><th>Last message</th></tr></thead>
           <tbody id="leadRows"></tbody>
         </table>
       </div>
@@ -218,9 +221,20 @@ function ago(ts) {
 }
 const stageName = {
   new: 'New', lang_picked_wait: 'Started', bill_asked: 'Asked bill', q1: 'Qualifying', q2: 'Qualifying', q3: 'Qualifying',
-  ctype: 'Property type', day_wait: 'Picking day', slot_wait: 'Picking time', booked: 'Survey booked',
+  ctype: 'Property type', day_wait: 'Picking day', slot_wait: 'Picking time', address_wait: 'Awaiting address', booked: 'Survey booked',
   cancelled: 'Cancelled', nurture: 'Nurture', won: 'Won', lost: 'Lost'
 };
+function mapUrl(l) {
+  if (l.location_lat != null && l.location_lng != null) return `https://www.google.com/maps?q=${l.location_lat},${l.location_lng}`;
+  if (l.address) return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(l.address);
+  return '';
+}
+function addrCell(l) {
+  const url = mapUrl(l);
+  if (!url) return '—';
+  const label = l.address || 'Pinned location';
+  return `<a href="${esc(url)}" target="_blank" rel="noopener" title="${esc(label)}">${esc(label)}</a>`;
+}
 const segName = { factory: 'Factory', business: 'Shop / office', home: 'Large home', residential: 'Home' };
 
 let events = [], leads = [], filter = 'open', soundOn = true;
@@ -303,6 +317,7 @@ function renderSurveys() {
         <div class="who">${esc(l.name || 'Customer')}, ${d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, ...IST })}</div>
         <div class="sub">${esc(segName[l.segment] || 'Home')}${l.kw ? ', ' + l.kw + ' kW' : ''}${l.bill_amount ? ', bill ' + inr(l.bill_amount) : ''}</div>
         <div class="sub"><a href="tel:+${esc(l.phone)}">${esc(phoneFmt(l.phone))}</a></div>
+        <div class="sub">${mapUrl(l) ? `<a href="${esc(mapUrl(l))}" target="_blank" rel="noopener">${esc(l.address || 'Open location in Maps')}</a>` : '<span class="pending">Address pending</span>'}</div>
       </div>
     </li>`;
   }).join('');
@@ -312,13 +327,14 @@ function renderLeads() {
   const q = ($('#search').value || '').toLowerCase().trim();
   const rows = leads.filter(l => !q || (l.name || '').toLowerCase().includes(q) || String(l.phone || '').includes(q.replace(/\D/g, '') || '~'))
                     .slice(0, 200);
-  if (!rows.length) { $('#leadRows').innerHTML = `<tr><td colspan="8" class="empty">${q ? 'No leads match that search.' : 'No leads yet. The first WhatsApp enquiry will appear here.'}</td></tr>`; return; }
+  if (!rows.length) { $('#leadRows').innerHTML = `<tr><td colspan="9" class="empty">${q ? 'No leads match that search.' : 'No leads yet. The first WhatsApp enquiry will appear here.'}</td></tr>`; return; }
   $('#leadRows').innerHTML = rows.map(l => `
     <tr>
       <td>${esc(l.name || '—')}</td>
       <td><a href="https://wa.me/${esc(l.phone)}" target="_blank" rel="noopener">${esc(phoneFmt(l.phone))}</a></td>
       <td>${l.segment ? `<span class="pill ${esc(l.segment)}">${esc(segName[l.segment] || l.segment)}</span>` : '—'}</td>
       <td>${l.temperature === 'hot' ? '<span class="pill hot">Hot</span> ' : ''}${esc(stageName[l.stage] || l.stage || '—')}</td>
+      <td class="addr">${addrCell(l)}</td>
       <td class="num">${inr(l.bill_amount)}</td>
       <td class="num">${l.kw ? l.kw + ' kW' : '—'}</td>
       <td class="num">${inr(l.net_cost)}</td>
@@ -332,7 +348,7 @@ const renderAll = () => { renderStatus(); renderFeed(); renderSurveys(); renderL
 async function load() {
   const [ev, ld] = await Promise.all([
     db.from('events').select('*').not('title', 'is', null).order('created_at', { ascending: false }).limit(200),
-    db.from('leads').select('id,name,phone,segment,stage,temperature,bill_amount,kw,net_cost,survey_at,last_inbound_at,updated_at')
+    db.from('leads').select('id,name,phone,segment,stage,temperature,bill_amount,kw,net_cost,survey_at,last_inbound_at,updated_at,address,location_lat,location_lng')
       .order('updated_at', { ascending: false }).limit(500)
   ]);
   if (ev.error || ld.error) { toast('Could not load data: ' + (ev.error || ld.error).message); return; }
@@ -348,9 +364,15 @@ function subscribe() {
       events.unshift(p.new);
       chime(); notify(p.new); toast(p.new.title);
       // pull the latest lead data too (new booking time, segment, etc.)
-      const { data } = await db.from('leads').select('id,name,phone,segment,stage,temperature,bill_amount,kw,net_cost,survey_at,last_inbound_at,updated_at')
+      const { data } = await db.from('leads').select('id,name,phone,segment,stage,temperature,bill_amount,kw,net_cost,survey_at,last_inbound_at,updated_at,address,location_lat,location_lng')
         .order('updated_at', { ascending: false }).limit(500);
       if (data) leads = data;
+      renderAll();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, p => {
+      if (!p.new || !p.new.id) return;
+      const i = leads.findIndex(l => l.id === p.new.id);
+      if (i > -1) leads[i] = { ...leads[i], ...p.new }; else leads.unshift(p.new);
       renderAll();
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'events' }, p => {
