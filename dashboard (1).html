@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Wadhwa Solar leads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    color-scheme: light only;
+    --paper:#FDFBF7; --paper2:#F4F2EB; --ink:#141414; --dim:#5A5852;
+    --lime:#E9F79A; --lime2:#D8F06A; --sun:#FFD84D; --flame:#C2410C; --line:#141414;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.55 Inter,system-ui,sans-serif}
+  h1,h2,h3{font-family:"Bricolage Grotesque",Inter,sans-serif;letter-spacing:-.025em;margin:0;color:var(--ink)}
+  button{font:inherit;cursor:pointer}
+  a{color:inherit}
+  :focus-visible{outline:3px solid var(--flame);outline-offset:2px}
+
+  /* ---------- login ---------- */
+  .login{min-height:100vh;display:grid;place-items:center;padding:24px}
+  .login form{width:100%;max-width:380px;background:#fff;border:2px solid var(--ink);box-shadow:8px 8px 0 var(--ink);padding:28px}
+  .login h1{font-size:1.7rem;margin-bottom:4px}
+  .login p{color:var(--dim);margin:0 0 20px}
+  label{display:block;font-weight:500;font-size:.9rem;margin:14px 0 6px}
+  input{width:100%;padding:11px 12px;border:2px solid var(--ink);background:var(--paper);font:inherit;color:var(--ink)}
+  input:focus{outline:none;background:var(--lime)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:2px solid var(--ink);background:var(--ink);color:var(--lime);font-weight:600;padding:10px 16px;text-decoration:none}
+  .btn:hover{background:#2a2a2a}
+  .btn.light{background:#fff;color:var(--ink)}
+  .btn.light:hover{background:var(--lime)}
+  .btn.sm{padding:6px 11px;font-size:.85rem}
+  .login .btn{width:100%;margin-top:20px}
+  .err{color:#B3261E;font-size:.9rem;margin-top:12px;min-height:1.2em}
+
+  /* ---------- app ---------- */
+  .top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;border-bottom:2px solid var(--ink);background:var(--paper);position:sticky;top:0;z-index:5}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand h1{font-size:1.15rem}
+  .brand small{display:block;color:var(--dim);font-size:.78rem;font-family:Inter,sans-serif;letter-spacing:0}
+  .top .actions{display:flex;gap:8px;align-items:center}
+  .live{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;color:var(--dim)}
+  .live i{width:8px;height:8px;border-radius:50%;background:#9A9A9A}
+  .live.on i{background:#2E9B4E}
+
+  main{max-width:1240px;margin:0 auto;padding:28px 24px 60px}
+  .status{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:clamp(1.5rem,3.2vw,2.3rem);line-height:1.15;letter-spacing:-.03em;max-width:32ch;margin:0 0 28px}
+  .status .quiet{color:var(--dim);font-weight:700}
+
+  .grid{display:grid;grid-template-columns:1.55fr 1fr;gap:24px;align-items:start}
+  .panel{background:#fff;border:2px solid var(--ink)}
+  .panel > header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:2px solid var(--ink)}
+  .panel h2{font-size:1.15rem}
+  .tabs{display:flex;gap:4px}
+  .tabs button{border:2px solid var(--ink);background:#fff;padding:4px 10px;font-size:.82rem;font-weight:500}
+  .tabs button[aria-pressed="true"]{background:var(--ink);color:var(--lime)}
+
+  /* alerts */
+  .feed{list-style:none;margin:0;padding:0;max-height:70vh;overflow:auto}
+  .alert{display:grid;grid-template-columns:10px 1fr;border-bottom:1px solid #E4E1D8}
+  .alert:last-child{border-bottom:0}
+  .alert .bar{background:var(--paper2)}
+  .alert[data-type="big_lead"] .bar{background:var(--sun)}
+  .alert[data-type="booked"] .bar{background:var(--lime2)}
+  .alert[data-type="call_request"] .bar{background:var(--flame)}
+  .alert[data-type="reschedule"] .bar{background:#A8C5E8}
+  .alert[data-type="cancelled"] .bar{background:#C9C6BE}
+  .alert .body{padding:14px 16px}
+  .alert h3{font-size:1.02rem;line-height:1.3}
+  .alert .meta{color:var(--dim);font-size:.88rem;margin:3px 0 10px}
+  .alert .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .alert .when{margin-left:auto;color:var(--dim);font-size:.8rem}
+  .alert.done{opacity:.5}
+  .alert.fresh{animation:arrive 2.4s ease-out}
+  @keyframes arrive{0%{background:var(--sun)}100%{background:#fff}}
+
+  /* surveys */
+  .surveys{list-style:none;margin:0;padding:0}
+  .surveys li{display:grid;grid-template-columns:74px 1fr;gap:12px;padding:12px 16px;border-bottom:1px solid #E4E1D8}
+  .surveys li:last-child{border-bottom:0}
+  .day{border:2px solid var(--ink);text-align:center;padding:4px 0;line-height:1.1}
+  .day b{display:block;font-family:"Bricolage Grotesque",sans-serif;font-size:1.35rem}
+  .day span{font-size:.75rem;color:var(--dim)}
+  .day.today{background:var(--lime)}
+  .surveys .who{font-weight:600}
+  .surveys .sub{color:var(--dim);font-size:.86rem}
+
+  .empty{padding:28px 16px;color:var(--dim)}
+
+  /* leads table */
+  .leads{margin-top:24px}
+  .leads header input{max-width:260px;padding:7px 10px;font-size:.9rem}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:.9rem}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid #E4E1D8;white-space:nowrap}
+  th{font-weight:600;background:var(--paper2);border-bottom:2px solid var(--ink)}
+  td.num{font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:1px 8px;border:1.5px solid var(--ink);font-size:.78rem;background:#fff}
+  .pill.factory{background:var(--sun)}
+  .pill.business{background:#F2E3C7}
+  .pill.hot{background:var(--lime)}
+
+  .toast{position:fixed;right:18px;bottom:18px;background:var(--ink);color:var(--lime);padding:12px 16px;font-weight:600;transform:translateY(120%);transition:transform .25s ease;z-index:10;max-width:320px}
+  .toast.show{transform:none}
+
+  [hidden]{display:none!important}
+
+  @media (max-width:900px){
+    .grid{grid-template-columns:1fr}
+    .top{padding:12px 16px}
+    main{padding:20px 16px 48px}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section class="login" id="loginView" hidden>
+  <form id="loginForm">
+    <h1>Wadhwa Solar</h1>
+    <p>Sign in to see today's leads and alerts.</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit">Sign in</button>
+    <div class="err" id="loginErr" role="alert"></div>
+  </form>
+</section>
+
+<!-- ============ APP ============ -->
+<div id="appView" hidden>
+  <div class="top">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 140 140" aria-hidden="true">
+        <circle cx="70" cy="71" r="40" fill="#FFD84D" stroke="#141414" stroke-width="6"/>
+        <g fill="none" stroke="#141414" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M45 54 L57 90 L70 66"/><path d="M70 66 L83 90 L95 54"/>
+        </g>
+      </svg>
+      <div><h1>Wadhwa Solar</h1><small>Leads and alerts</small></div>
+    </div>
+    <div class="actions">
+      <span class="live" id="live"><i></i><span>Connecting</span></span>
+      <button class="btn light sm" id="soundBtn" aria-pressed="true">Sound on</button>
+      <button class="btn light sm" id="signOut">Sign out</button>
+    </div>
+  </div>
+
+  <main>
+    <p class="status" id="status">Loading…</p>
+
+    <div class="grid">
+      <section class="panel" aria-labelledby="alertsH">
+        <header>
+          <h2 id="alertsH">Needs attention</h2>
+          <div class="tabs" role="group" aria-label="Filter alerts">
+            <button data-f="open" aria-pressed="true">Open</button>
+            <button data-f="all" aria-pressed="false">All</button>
+          </div>
+        </header>
+        <ul class="feed" id="feed"></ul>
+      </section>
+
+      <section class="panel" aria-labelledby="surveysH">
+        <header><h2 id="surveysH">Upcoming surveys</h2></header>
+        <ul class="surveys" id="surveys"></ul>
+      </section>
+    </div>
+
+    <section class="panel leads" aria-labelledby="leadsH">
+      <header>
+        <h2 id="leadsH">All leads</h2>
+        <input id="search" type="search" placeholder="Search name or phone" aria-label="Search leads">
+      </header>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Phone</th><th>Type</th><th>Stage</th><th>Bill / month</th><th>System</th><th>Net cost</th><th>Last message</th></tr></thead>
+          <tbody id="leadRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* =========================================================
+   CONFIG — paste your two values here
+   Supabase → Settings → API Keys → Publishable key
+   (the publishable key is safe in a browser; the secret key is NOT)
+   ========================================================= */
+const SUPABASE_URL = 'https://ivioasleflvsqznejoof.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_QGF2O-l8mUXWt26YgjmgkQ_gmNXXTLe';
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = n => n == null ? '—' : '₹' + Math.round(n).toLocaleString('en-IN');
+const phoneFmt = p => { p = String(p || ''); return p.startsWith('91') && p.length === 12 ? '+91 ' + p.slice(2,7) + ' ' + p.slice(7) : p; };
+const IST = { timeZone: 'Asia/Kolkata' };
+function ago(ts) {
+  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + ' min ago';
+  if (s < 86400) return Math.floor(s / 3600) + ' hr ago';
+  return new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', ...IST });
+}
+const stageName = {
+  new: 'New', lang_picked_wait: 'Started', bill_asked: 'Asked bill', q1: 'Qualifying', q2: 'Qualifying', q3: 'Qualifying',
+  ctype: 'Property type', day_wait: 'Picking day', slot_wait: 'Picking time', booked: 'Survey booked',
+  cancelled: 'Cancelled', nurture: 'Nurture', won: 'Won', lost: 'Lost'
+};
+const segName = { factory: 'Factory', business: 'Shop / office', home: 'Large home', residential: 'Home' };
+
+let events = [], leads = [], filter = 'open', soundOn = true;
+
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
+
+function chime() {
+  if (!soundOn) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [880, 1320].forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = f; o.type = 'sine';
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.16);
+      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + i * 0.16 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.16 + 0.3);
+      o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + i * 0.16); o.stop(ctx.currentTime + i * 0.16 + 0.32);
+    });
+  } catch (e) {}
+}
+
+function notify(ev) {
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+    new Notification(ev.title || 'New alert', { body: ev.detail || '' });
+  }
+}
+
+/* ---------- render ---------- */
+function renderStatus() {
+  const open = events.filter(e => !e.done).length;
+  const now = new Date();
+  const todayKey = now.toLocaleDateString('en-CA', IST);
+  const upcoming = leads.filter(l => l.survey_at && new Date(l.survey_at) > now);
+  const today = upcoming.filter(l => new Date(l.survey_at).toLocaleDateString('en-CA', IST) === todayKey).length;
+  const week = upcoming.filter(l => new Date(l.survey_at) - now < 7 * 86400000).length;
+  document.title = (open ? `(${open}) ` : '') + 'Wadhwa Solar leads';
+  $('#status').innerHTML =
+    (open ? `${open} ${open === 1 ? 'thing needs' : 'things need'} you.` : 'Nothing waiting on you.') +
+    ` <span class="quiet">${today} ${today === 1 ? 'survey' : 'surveys'} today, ${week} this week.</span>`;
+}
+
+function renderFeed() {
+  const list = events.filter(e => filter === 'all' || !e.done);
+  if (!list.length) {
+    $('#feed').innerHTML = `<li class="empty">${filter === 'open' ? 'All clear. New bookings, call requests and big leads show up here the moment they happen.' : 'No alerts yet.'}</li>`;
+    return;
+  }
+  $('#feed').innerHTML = list.map(e => `
+    <li class="alert ${e.done ? 'done' : ''} ${e._fresh ? 'fresh' : ''}" data-type="${esc(e.event_type)}" data-id="${e.id}">
+      <div class="bar"></div>
+      <div class="body">
+        <h3>${esc(e.title || e.event_type)}</h3>
+        <div class="meta">${esc(e.detail || '')}</div>
+        <div class="row">
+          ${e.phone ? `<a class="btn sm" href="tel:+${esc(e.phone)}">Call ${esc(phoneFmt(e.phone))}</a>
+          <a class="btn light sm" href="https://wa.me/${esc(e.phone)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+          ${e.done ? '' : `<button class="btn light sm" data-done="${e.id}">Mark done</button>`}
+          <span class="when">${ago(e.created_at)}</span>
+        </div>
+      </div>
+    </li>`).join('');
+  list.forEach(e => delete e._fresh);
+}
+
+function renderSurveys() {
+  const now = new Date();
+  const todayKey = now.toLocaleDateString('en-CA', IST);
+  const up = leads.filter(l => l.survey_at && new Date(l.survey_at) > new Date(now - 2 * 3600000))
+                  .sort((a, b) => new Date(a.survey_at) - new Date(b.survey_at)).slice(0, 15);
+  if (!up.length) { $('#surveys').innerHTML = '<li class="empty" style="display:block">No surveys booked yet. Bookings from WhatsApp appear here automatically.</li>'; return; }
+  $('#surveys').innerHTML = up.map(l => {
+    const d = new Date(l.survey_at);
+    const isToday = d.toLocaleDateString('en-CA', IST) === todayKey;
+    return `<li>
+      <div class="day ${isToday ? 'today' : ''}">
+        <b>${d.toLocaleDateString('en-IN', { day: 'numeric', ...IST })}</b>
+        <span>${d.toLocaleDateString('en-IN', { month: 'short', ...IST })}</span>
+      </div>
+      <div>
+        <div class="who">${esc(l.name || 'Customer')}, ${d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, ...IST })}</div>
+        <div class="sub">${esc(segName[l.segment] || 'Home')}${l.kw ? ', ' + l.kw + ' kW' : ''}${l.bill_amount ? ', bill ' + inr(l.bill_amount) : ''}</div>
+        <div class="sub"><a href="tel:+${esc(l.phone)}">${esc(phoneFmt(l.phone))}</a></div>
+      </div>
+    </li>`;
+  }).join('');
+}
+
+function renderLeads() {
+  const q = ($('#search').value || '').toLowerCase().trim();
+  const rows = leads.filter(l => !q || (l.name || '').toLowerCase().includes(q) || String(l.phone || '').includes(q.replace(/\D/g, '') || '~'))
+                    .slice(0, 200);
+  if (!rows.length) { $('#leadRows').innerHTML = `<tr><td colspan="8" class="empty">${q ? 'No leads match that search.' : 'No leads yet. The first WhatsApp enquiry will appear here.'}</td></tr>`; return; }
+  $('#leadRows').innerHTML = rows.map(l => `
+    <tr>
+      <td>${esc(l.name || '—')}</td>
+      <td><a href="https://wa.me/${esc(l.phone)}" target="_blank" rel="noopener">${esc(phoneFmt(l.phone))}</a></td>
+      <td>${l.segment ? `<span class="pill ${esc(l.segment)}">${esc(segName[l.segment] || l.segment)}</span>` : '—'}</td>
+      <td>${l.temperature === 'hot' ? '<span class="pill hot">Hot</span> ' : ''}${esc(stageName[l.stage] || l.stage || '—')}</td>
+      <td class="num">${inr(l.bill_amount)}</td>
+      <td class="num">${l.kw ? l.kw + ' kW' : '—'}</td>
+      <td class="num">${inr(l.net_cost)}</td>
+      <td>${l.last_inbound_at ? ago(l.last_inbound_at) : '—'}</td>
+    </tr>`).join('');
+}
+
+const renderAll = () => { renderStatus(); renderFeed(); renderSurveys(); renderLeads(); };
+
+/* ---------- data ---------- */
+async function load() {
+  const [ev, ld] = await Promise.all([
+    db.from('events').select('*').not('title', 'is', null).order('created_at', { ascending: false }).limit(200),
+    db.from('leads').select('id,name,phone,segment,stage,temperature,bill_amount,kw,net_cost,survey_at,last_inbound_at,updated_at')
+      .order('updated_at', { ascending: false }).limit(500)
+  ]);
+  if (ev.error || ld.error) { toast('Could not load data: ' + (ev.error || ld.error).message); return; }
+  events = ev.data; leads = ld.data;
+  renderAll();
+}
+
+function subscribe() {
+  db.channel('dash')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'events' }, async p => {
+      if (!p.new.title) return;
+      p.new._fresh = true;
+      events.unshift(p.new);
+      chime(); notify(p.new); toast(p.new.title);
+      // pull the latest lead data too (new booking time, segment, etc.)
+      const { data } = await db.from('leads').select('id,name,phone,segment,stage,temperature,bill_amount,kw,net_cost,survey_at,last_inbound_at,updated_at')
+        .order('updated_at', { ascending: false }).limit(500);
+      if (data) leads = data;
+      renderAll();
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'events' }, p => {
+      const i = events.findIndex(e => e.id === p.new.id);
+      if (i > -1) { events[i] = p.new; renderAll(); }
+    })
+    .subscribe(s => {
+      const on = s === 'SUBSCRIBED';
+      $('#live').classList.toggle('on', on);
+      $('#live span').textContent = on ? 'Live' : 'Reconnecting';
+    });
+}
+
+/* ---------- actions ---------- */
+$('#feed').addEventListener('click', async e => {
+  const id = e.target.dataset.done;
+  if (!id) return;
+  e.target.disabled = true;
+  const { error } = await db.from('events').update({ done: true, done_at: new Date().toISOString() }).eq('id', id);
+  if (error) { toast('Could not update: ' + error.message); e.target.disabled = false; return; }
+  const ev = events.find(x => x.id === id); if (ev) ev.done = true;
+  renderAll();
+});
+
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  filter = b.dataset.f;
+  document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  renderFeed();
+}));
+
+$('#search').addEventListener('input', renderLeads);
+
+$('#soundBtn').addEventListener('click', () => {
+  soundOn = !soundOn;
+  $('#soundBtn').textContent = soundOn ? 'Sound on' : 'Sound off';
+  $('#soundBtn').setAttribute('aria-pressed', soundOn);
+  if (soundOn) chime();
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+});
+
+$('#signOut').addEventListener('click', async () => { await db.auth.signOut(); location.reload(); });
+
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  $('#loginErr').textContent = '';
+  const { error } = await db.auth.signInWithPassword({ email: $('#email').value.trim(), password: $('#password').value });
+  if (error) { $('#loginErr').textContent = error.message === 'Invalid login credentials' ? 'Email or password is wrong.' : error.message; return; }
+  start();
+});
+
+async function start() {
+  $('#loginView').hidden = true; $('#appView').hidden = false;
+  await load(); subscribe();
+  setInterval(() => { renderStatus(); renderFeed(); }, 60000);   // keep "x min ago" fresh
+}
+
+(async () => {
+  const { data } = await db.auth.getSession();
+  if (data.session) start(); else $('#loginView').hidden = false;
+})();
+</script>
+</body>
+</html>
