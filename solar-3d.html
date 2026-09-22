@@ -117,6 +117,13 @@ details.manual summary{cursor:pointer;font-weight:600}
 .hide{display:none!important}
 .clip{width:100%;border:2px solid var(--ink);margin:10px 0;background:#000;max-height:260px}
 .btn.camera{background:var(--lime)}
+.camStart{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;z-index:550}
+.camStart .btn{min-width:230px;font-size:1.05rem}
+.camStart.hide{display:none}
+/* location pin */
+.pin{width:30px!important;height:40px!important;margin:-40px 0 0 -15px!important}
+.locbtn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:#fff;border:0;cursor:pointer}
+.locbtn:hover{background:var(--lime)}
 /* print sheet */
 #sheet{display:none}
 @media print{
@@ -130,7 +137,10 @@ details.manual summary{cursor:pointer;font-weight:600}
 }
 
 @media (max-width:900px){
-  .app{grid-template-columns:1fr;grid-template-rows:auto auto}
+  html,body{height:auto}
+  body{display:block}
+  .app{display:block}
+  .side{overflow:visible}
   .stage{border-right:0;border-bottom:3px solid var(--ink);min-height:58vh}
   .top{padding:10px 12px;gap:8px}
   .top .call{padding:7px 9px;font-size:.82rem}
@@ -153,7 +163,12 @@ details.manual summary{cursor:pointer;font-weight:600}
   <section class="stage" aria-label="Your roof">
     <div id="map" role="application" aria-label="Satellite map"></div>
     <div id="view3d" hidden aria-label="3D view of your roof with solar panels"></div>
-    <div id="camWrap" aria-label="Your roof with solar panels"><canvas id="camCanvas"></canvas><span class="rec" id="recBadge">● Recording</span></div>
+    <div id="camWrap" aria-label="Your roof with solar panels"><canvas id="camCanvas"></canvas><span class="rec" id="recBadge">● Recording</span>
+      <div class="camStart" id="camStart">
+        <button class="btn sun" id="camLive2">Open camera</button>
+        <label class="btn" for="camFile">Upload a photo or video</label>
+        <p id="m5b" class="msg" role="status" style="color:#FFD84D"></p>
+      </div></div>
     <div class="hint"><span id="hint">Find your house on the map</span></div>
     <div class="sunbar" id="sunbar">
       <label for="month">Sun on</label>
@@ -177,7 +192,7 @@ details.manual summary{cursor:pointer;font-weight:600}
           <button class="btn solid" id="go">Search</button>
         </div>
       </div>
-      <button class="link" id="locate">Use my current location</button>
+      <button class="btn wide" id="locate" style="margin-bottom:4px">📍 Pin my current location</button>
       <div class="cities" aria-label="Jump to city">
         <button data-c="29.3909,76.9635">Panipat</button><button data-c="29.6857,76.9905">Karnal</button>
         <button data-c="28.9931,77.0151">Sonipat</button><button data-c="28.4595,77.0266">Gurugram</button>
@@ -536,6 +551,7 @@ if (typeof module !== 'undefined') module.exports = WS;
     if (!in3d) setTimeout(function () { map.invalidateSize(); }, 0);
     $('map').style.cursor = (n === 2 || n === 3) ? 'crosshair' : '';
     document.querySelector('.side').scrollTop = 0;
+    if (window.innerWidth <= 900) window.scrollTo(0, 0);
   }
 
   // ---------- step 1 ----------
@@ -553,24 +569,54 @@ if (typeof module !== 'undefined') module.exports = WS;
   }
   $('go').onclick = search;
   $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter') search(); });
-  $('locate').onclick = function () {
-    if (!navigator.geolocation) { $('m1').textContent = 'Location is not available on this device.'; return; }
-    $('m1').textContent = 'Finding you…';
+  // ---- current-location pin ----
+  var pinIcon = L.divIcon({ className: 'pin', iconSize: [30, 40], html:
+    '<svg width="30" height="40" viewBox="0 0 30 40"><path d="M15 1C7.3 1 1.5 6.8 1.5 14.2 1.5 24 15 39 15 39s13.5-15 13.5-24.8C28.5 6.8 22.7 1 15 1z" fill="#C2410C" stroke="#141414" stroke-width="2.5"/><circle cx="15" cy="14.5" r="5.5" fill="#FFD84D" stroke="#141414" stroke-width="2.5"/></svg>' });
+  var pinMarker = null, pinCircle = null;
+  function setPin(ll, acc) {
+    st.pin = ll;
+    if (!pinMarker) {
+      pinMarker = L.marker(ll, { icon: pinIcon, draggable: true, keyboard: true, title: 'Your house — drag to adjust' }).addTo(map);
+      pinMarker.on('dragend', function () { st.pin = pinMarker.getLatLng(); if (pinCircle) { map.removeLayer(pinCircle); pinCircle = null; } });
+    } else pinMarker.setLatLng(ll);
+    if (pinCircle) map.removeLayer(pinCircle);
+    pinCircle = acc ? L.circle(ll, { radius: Math.min(acc, 200), color: '#C2410C', weight: 1, fillOpacity: .08, interactive: false }).addTo(map) : null;
+  }
+  function locateMe() {
+    if (!navigator.geolocation) { $('m1').textContent = 'Location is not available on this device. Search instead.'; return; }
+    $('m1').textContent = 'Finding your location…';
     navigator.geolocation.getCurrentPosition(function (p) {
-      map.setView([p.coords.latitude, p.coords.longitude], 19); $('m1').textContent = 'Check the map is on your house, then continue.';
-    }, function () { $('m1').textContent = 'Location was blocked. Search instead.'; }, { enableHighAccuracy: true, timeout: 10000 });
-  };
+      var ll = L.latLng(p.coords.latitude, p.coords.longitude);
+      setPin(ll, p.coords.accuracy);
+      map.setView(ll, 19);
+      $('m1').textContent = p.coords.accuracy > 50
+        ? 'Pin dropped, but GPS is rough (±' + Math.round(p.coords.accuracy) + ' m). Drag the pin onto your roof.'
+        : 'Pin dropped on your location. Drag it if it is not exactly on your roof.';
+    }, function (err) {
+      $('m1').textContent = err && err.code === 1
+        ? 'Location permission was blocked. Allow Location for this site, or search instead.'
+        : 'Could not get your location. Turn on GPS, or search instead.';
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  }
+  $('locate').onclick = locateMe;
+  var LocCtl = L.Control.extend({ options: { position: 'topleft' }, onAdd: function () {
+    var d = L.DomUtil.create('div', 'leaflet-bar');
+    var b = L.DomUtil.create('button', 'locbtn', d); b.type = 'button'; b.title = 'Pin my current location'; b.setAttribute('aria-label', 'Pin my current location');
+    b.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#141414" stroke-width="2.4"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="#C2410C" stroke="none"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>';
+    L.DomEvent.disableClickPropagation(d); L.DomEvent.on(b, 'click', function (e) { L.DomEvent.stop(e); if (st.step === 1) setStep(1); locateMe(); });
+    return d; } });
+  map.addControl(new LocCtl());
   document.querySelectorAll('.cities button').forEach(function (b) {
     b.onclick = function () { var c = b.dataset.c.split(','); map.setView([+c[0], +c[1]], 16); };
   });
   $('found').onclick = function () {
     if (map.getZoom() < 17) { $('m1').textContent = 'Zoom in closer so your roof is clear, then tap again.'; return; }
-    var c = map.getCenter(); st.frame = WS.makeFrame(c.lat, c.lng);
+    var c = map.getCenter(); st.frame = WS.makeFrame(c.lat, c.lng); st.manual = false;
     st.pts = []; drawRoof(); setStep(2);
   };
   $('manualGo').onclick = function () {
     var L1 = Math.min(80, Math.max(3, +$('rl').value || 12)), W1 = Math.min(80, Math.max(3, +$('rw').value || 9));
-    var c = map.getCenter(); st.frame = WS.makeFrame(c.lat, c.lng);
+    var c = st.pin || map.getCenter(); st.frame = WS.makeFrame(c.lat, c.lng); st.manual = true;
     st.pts = [[-L1 / 2, -W1 / 2], [L1 / 2, -W1 / 2], [L1 / 2, W1 / 2], [-L1 / 2, W1 / 2]].map(function (p) { return st.frame.toLL(p[0], p[1]); });
     if (map.getZoom() < 18) map.setView(c, 19);
     finishRoof();
@@ -663,13 +709,21 @@ if (typeof module !== 'undefined') module.exports = WS;
     $('rNet').textContent = M(f.net);
     $('rEmi').textContent = f.emi ? '~' + M(f.emi) + ' a month' : 'Not applicable';
     $('rPay').textContent = r.payback.toFixed(1) + ' years';
-    var c = st.frame, loc = 'https://maps.google.com/?q=' + c.lat0.toFixed(6) + ',' + c.lng0.toFixed(6);
+    var h = houseLL(), loc = 'https://maps.google.com/?q=' + h.lat.toFixed(6) + ',' + h.lng.toFixed(6);
     var txt = 'Namaste Wadhwa Solar! I designed my roof on your website.\n\n' +
       '☀️ ' + r.kw + ' kW, ' + r.chosen + ' panels\n⚡ ~' + Math.round(r.unitsMonth) + ' units/month, shade loss ' + (r.loss * 100).toFixed(1) + '%\n' +
       '🧾 Bill ' + M(r.bill) + '/month\n📍 ' + loc + '\n\nPlease book my free survey.';
     $('wa').href = 'https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(txt);
   }
 
+  function houseLL() {
+    if (st.pts && st.pts.length >= 3 && !st.manual) {
+      var a = 0, b = 0; st.pts.forEach(function (p) { a += p.lat; b += p.lng; });
+      return { lat: a / st.pts.length, lng: b / st.pts.length };
+    }
+    if (st.pin) return { lat: st.pin.lat, lng: st.pin.lng };
+    return { lat: st.frame.lat0, lng: st.frame.lng0 };
+  }
   // ---------- step 4: 3D ----------
   var R = null;
   var panelTex = (function () {
@@ -811,7 +865,7 @@ if (typeof module !== 'undefined') module.exports = WS;
       ['Government subsidy', r.kw > 10 ? 'Not applicable' : M(f.sub)], ['You pay', M(f.net)], ['Or bank EMI, 10 years', f.emi ? '~' + M(f.emi) + ' a month' : 'Not applicable'],
       ['Money back in', r.payback.toFixed(1) + ' years']];
     $('sheet').innerHTML = '<h1>Your solar roof — Wadhwa Solar</h1><p>' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) +
-      ' · Location ' + st.frame.lat0.toFixed(5) + ', ' + st.frame.lng0.toFixed(5) + '</p><img src="' + img + '" alt="3D design"><table>' +
+      ' · Location ' + houseLL().lat.toFixed(5) + ', ' + houseLL().lng.toFixed(5) + '</p><img src="' + img + '" alt="3D design"><table>' +
       rows.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') +
       '</table><p style="margin-top:6mm">Estimate only — confirmed at the free survey. Call or WhatsApp +91 70277 63605.</p>';
     setTimeout(function () { window.print(); }, 50);
@@ -871,7 +925,7 @@ if (typeof module !== 'undefined') module.exports = WS;
   }
   function placeSun() {
     if (!T) return;
-    var f = st.frame || { lat0: 29.39, lng0: 76.97 }, now = new Date();
+    var f = st.frame || (st.pin ? { lat0: st.pin.lat, lng0: st.pin.lng } : { lat0: 29.39, lng0: 76.97 }), now = new Date();
     var sp = WS.sunPos(WS.istMs(now.getFullYear(), now.getMonth(), 15, 11), f.lat0, f.lng0), v = WS.sunVec(sp.alt, sp.az);
     var turn = +$('cTurn').value * Math.PI / 180;       // sun turns with the array's "north"
     var x = v.x * Math.cos(turn) - v.y * Math.sin(turn), y = v.x * Math.sin(turn) + v.y * Math.cos(turn);
@@ -932,6 +986,8 @@ if (typeof module !== 'undefined') module.exports = WS;
     if (!st.result) $('cBill').value = $('bill').value;
     document.querySelector('.steps').classList.add('hide');
     sizeCanvas(); buildArray(); sizeCanvas();
+    showControls(!!C.src); $('m5').textContent = ''; $('m5b').textContent = '';
+    document.querySelector('.side').scrollTop = 0; window.scrollTo(0, 0);
     requestAnimationFrame(camLoop);
   }
   function stopStream() { if (C.stream) { C.stream.getTracks().forEach(function (t) { t.stop(); }); C.stream = null; } }
@@ -941,13 +997,13 @@ if (typeof module !== 'undefined') module.exports = WS;
     setStep(C.from);
     if (C.from === 4) resize3d();
   }
-  function showControls(yes) { $('c0').classList.toggle('hide', yes); $('c1').classList.toggle('hide', !yes); $('hint').textContent = yes ? 'Drag the panels onto your roof' : 'Point at your roof, or upload a photo'; }
+  function showControls(yes) { $('c0').classList.toggle('hide', yes); $('c1').classList.toggle('hide', !yes); $('camStart').classList.toggle('hide', yes); $('hint').textContent = yes ? 'Drag the panels onto your roof' : 'Point at your roof, or upload a photo'; }
   $('camFrom1').onclick = function () { openCam(1); };
   $('camFrom4').onclick = function () { openCam(4); };
   $('camBack').onclick = closeCam;
   $('camRetake').onclick = function () { stopStream(); C.src = null; C.img = null; $('c2').classList.add('hide'); showControls(false); $('camFreeze').textContent = 'Hold this view'; };
 
-  $('camLive').onclick = function () {
+  function startLive() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('m5').textContent = 'This browser cannot open the camera. Upload a photo instead.'; return; }
     $('m5').textContent = 'Opening camera…';
     navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
@@ -955,8 +1011,14 @@ if (typeof module !== 'undefined') module.exports = WS;
         C.stream = s; C.video.srcObject = s; C.video.play(); C.src = 'video'; $('m5').textContent = '';
         showControls(true); $('camFreeze').classList.remove('hide');
       })
-      .catch(function () { $('m5').textContent = 'Camera permission was blocked. Allow it in your browser, or upload a photo.'; });
-  };
+      .catch(function (err) {
+        var m = (err && err.name === 'NotAllowedError') ? 'Camera permission was blocked. Tap the lock icon next to the address bar, allow Camera, then try again. Or upload a photo.'
+              : (err && err.name === 'NotFoundError') ? 'No camera found on this device. Upload a photo instead.'
+              : 'Could not open the camera. Upload a photo instead.';
+        $('m5').textContent = m; $('m5b').textContent = m;
+      });
+  }
+  $('camLive').onclick = startLive; $('camLive2').onclick = startLive;
   $('camFile').onchange = function (e) {
     var f = e.target.files && e.target.files[0]; if (!f) return;
     stopStream(); var url = URL.createObjectURL(f);
