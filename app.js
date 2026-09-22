@@ -85,6 +85,13 @@
       set('cost', money(cost));
       set('sub', kw > 10 ? 'Not applicable' : money(sub));
       set('net', money(net));
+      // PM Surya Ghar bank loan (SBI slabs): 5.75% up to 2L, 7.90% up to 6L, 10 yrs, up to 90% of cost; subsidy prepaid
+      var emiTxt = 'Not applicable';
+      if (kw <= 10) {
+        var loan = Math.min(cost * 0.9, 600000), r = (loan <= 200000 ? 5.75 : 7.90) / 1200, n = 120, P = Math.max(loan - sub, 0);
+        if (P > 0) emiTxt = money(Math.round(P * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1) / 10) * 10)+ '/mo';
+      }
+      set('emi', emiTxt);
       set('pay', yrs.toFixed(1) + ' years');
       set('save25', money(save * 12 * 25 - net));
       set('beforeLbl', money(b) + ' a month');
