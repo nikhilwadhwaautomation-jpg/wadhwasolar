@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Design your solar roof in 3D — Wadhwa Solar</title>
+<meta name="description" content="Trace your roof on the satellite map, mark the water tank and stairs, and see your solar panels in 3D with real sun shadows. Free, in 2 minutes.">
+<link rel="icon" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --ink:#141414; --paper:#FDFBF7; --lime:#E9F79A; --sun:#FFD84D; --flame:#C2410C; --muted:#5B5953; --line:#D9D4C7;
+  --display:"Bricolage Grotesque", "Arial Black", system-ui, sans-serif;
+  --body:Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*:before,*:after{box-sizing:inherit}
+html,body{margin:0;height:100%}
+body{background:var(--paper);color:var(--ink);font:16px/1.5 var(--body);display:flex;flex-direction:column;min-height:100%}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--flame);outline-offset:2px}
+
+/* header */
+.top{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:3px solid var(--ink);background:var(--paper)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.brand b{font-family:var(--display);font-weight:800;font-size:1.15rem;letter-spacing:-.02em;white-space:nowrap}
+.top .call{margin-left:auto;background:var(--ink);color:var(--lime);text-decoration:none;font-weight:600;padding:9px 14px;border:2px solid var(--ink);white-space:nowrap}
+
+/* layout */
+.app{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 400px;min-height:0}
+.stage{position:relative;min-height:62vh;border-right:3px solid var(--ink);background:#DAD6CC}
+#map,#view3d{position:absolute;inset:0}
+#view3d{background:linear-gradient(#EAF1F4,#F6F4EE)}
+#view3d[hidden],#map[hidden]{display:none}
+.hint{position:absolute;left:58px;top:12px;right:12px;z-index:500;pointer-events:none;display:flex}
+.hint span{background:var(--ink);color:var(--paper);padding:8px 12px;font-weight:500;max-width:520px;box-shadow:5px 5px 0 var(--sun)}
+.sunbar{position:absolute;left:14px;right:14px;bottom:14px;z-index:500;background:var(--paper);border:3px solid var(--ink);padding:10px 14px;display:none;gap:12px;align-items:center;flex-wrap:wrap}
+.sunbar.on{display:flex}
+.sunbar label{font-weight:600;font-size:.9rem}
+.sunbar input[type=range]{flex:1;min-width:140px;accent-color:var(--flame)}
+.sunbar select{border:2px solid var(--ink);background:#fff;padding:4px 6px}
+.sunbar output{font-family:var(--display);font-weight:800;min-width:92px}
+
+/* side panel */
+.side{overflow:auto;padding:22px 22px 32px;background:var(--paper)}
+.steps{display:flex;gap:6px;margin:0 0 20px;padding:0;list-style:none}
+.steps li{flex:1;height:8px;background:var(--line)}
+.steps li.on{background:var(--ink)}
+.steps li.done{background:var(--flame)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.9rem,3vw,2.5rem);line-height:.98;letter-spacing:-.035em;margin:0 0 10px}
+h2{font-family:var(--display);font-weight:800;font-size:1.35rem;letter-spacing:-.02em;margin:0 0 8px;line-height:1.1}
+p{margin:0 0 14px;color:var(--muted)}
+.pane[hidden]{display:none}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-weight:600;font-size:.92rem}
+.in{border:2px solid var(--ink);background:#fff;padding:11px 12px;width:100%}
+.btn{border:2px solid var(--ink);background:#fff;padding:11px 16px;font-weight:600;cursor:pointer;text-align:center}
+.btn:hover{background:var(--lime)}
+.btn.solid{background:var(--ink);color:var(--lime)}
+.btn.solid:hover{background:#2a2a2a}
+.btn.sun{background:var(--sun)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.link{background:none;border:0;padding:0;color:var(--ink);text-decoration:underline;cursor:pointer;font-weight:500}
+.cities{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 18px}
+.cities button{border:2px solid var(--ink);background:var(--paper);padding:5px 10px;cursor:pointer;font-weight:500}
+.cities button:hover{background:var(--lime)}
+.msg{font-size:.9rem;color:var(--flame);min-height:1.3em;margin:6px 0 0}
+details.manual{margin-top:22px;border-top:2px solid var(--line);padding-top:14px}
+details.manual summary{cursor:pointer;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.count{font-family:var(--display);font-weight:800;font-size:2.4rem;line-height:1;margin:6px 0 4px}
+.chips{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.chip{border:2px solid var(--ink);background:#fff;padding:10px;cursor:pointer;text-align:left;font-weight:600;line-height:1.2}
+.chip small{display:block;font-weight:400;color:var(--muted);font-size:.8rem;margin-top:3px}
+.chip[aria-pressed=true]{background:var(--sun);box-shadow:4px 4px 0 var(--ink)}
+.olist{list-style:none;margin:0 0 16px;padding:0;border-top:2px solid var(--line)}
+.olist li{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:2px solid var(--line);font-size:.94rem}
+.olist button{border:0;background:none;color:var(--flame);font-weight:600;cursor:pointer}
+.olist .none{color:var(--muted)}
+
+/* results */
+.big{display:flex;align-items:baseline;gap:10px;margin:4px 0 2px}
+.big strong{font-family:var(--display);font-weight:800;font-size:3.4rem;line-height:.9;letter-spacing:-.04em}
+.big span{font-weight:600}
+.note{background:var(--lime);border:2px solid var(--ink);padding:10px 12px;margin:14px 0;font-size:.92rem;color:var(--ink)}
+.note.warn{background:#FFE3D3}
+.stats{margin:14px 0;border-top:2px solid var(--ink)}
+.stats div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.stats div span:first-child{color:var(--muted)}
+.stats div span:last-child{font-weight:600;text-align:right}
+.stats .hi span:last-child{font-family:var(--display);font-weight:800;font-size:1.3rem}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--muted);margin:6px 0 12px}
+.legend i{display:inline-block;width:14px;height:14px;border:2px solid var(--ink);vertical-align:-2px;margin-right:6px}
+.actions{display:grid;gap:8px;margin-top:16px}
+.fine{font-size:.8rem;color:var(--muted);margin-top:16px}
+
+/* leaflet tweaks */
+.leaflet-container{font:inherit;background:#CFCBC0}
+.vtx{background:var(--sun);border:3px solid var(--ink);width:16px!important;height:16px!important;margin:-8px 0 0 -8px!important}
+.vtx.first{background:var(--lime)}
+
+/* camera mode */
+#camWrap{position:absolute;inset:0;background:#141414;display:none;touch-action:none}
+#camWrap.on{display:block}
+#camWrap canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.rec{position:absolute;right:12px;top:12px;z-index:600;background:#C2410C;color:#fff;font-weight:700;padding:6px 12px;display:none}
+.rec.on{display:block}
+.ctl{margin:0 0 12px}
+.ctl label{display:flex;justify-content:space-between;font-weight:600;font-size:.9rem;margin-bottom:4px}
+.ctl input[type=range]{width:100%;accent-color:var(--flame)}
+.hide{display:none!important}
+.clip{width:100%;border:2px solid var(--ink);margin:10px 0;background:#000;max-height:260px}
+.btn.camera{background:var(--lime)}
+/* print sheet */
+#sheet{display:none}
+@media print{
+  body>*:not(#sheet){display:none!important}
+  #sheet{display:block;padding:10mm;color:#000}
+  #sheet h1{font-size:26pt;margin-bottom:4mm}
+  #sheet img{width:100%;border:2px solid #000;margin:4mm 0}
+  #sheet table{width:100%;border-collapse:collapse;font-size:11pt}
+  #sheet td{border-bottom:1px solid #999;padding:2mm 0}
+  #sheet td:last-child{text-align:right;font-weight:600}
+}
+
+@media (max-width:900px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto auto}
+  .stage{border-right:0;border-bottom:3px solid var(--ink);min-height:58vh}
+  .top{padding:10px 12px;gap:8px}
+  .top .call{padding:7px 9px;font-size:.82rem}
+  .brand b{font-size:1rem}
+  .hint span{font-size:.88rem;padding:6px 10px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html" aria-label="Wadhwa Solar home">
+    <svg width="34" height="34" viewBox="0 0 140 140" aria-hidden="true"><circle cx="70" cy="71" r="40" fill="#FFD84D" stroke="#141414" stroke-width="6"/><g fill="none" stroke="#141414" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="M45 54 L57 90 L70 66"/><path d="M70 66 L83 90 L95 54"/></g></svg>
+    <b>Wadhwa Solar</b>
+  </a>
+  <a class="call" href="tel:+917027763605">Call 70277 63605</a>
+</header>
+
+<main class="app">
+  <section class="stage" aria-label="Your roof">
+    <div id="map" role="application" aria-label="Satellite map"></div>
+    <div id="view3d" hidden aria-label="3D view of your roof with solar panels"></div>
+    <div id="camWrap" aria-label="Your roof with solar panels"><canvas id="camCanvas"></canvas><span class="rec" id="recBadge">● Recording</span></div>
+    <div class="hint"><span id="hint">Find your house on the map</span></div>
+    <div class="sunbar" id="sunbar">
+      <label for="month">Sun on</label>
+      <select id="month"></select>
+      <input id="hour" type="range" min="6" max="19" step="0.25" value="10" aria-label="Time of day">
+      <output id="hourOut" for="hour">10:00 am</output>
+    </div>
+  </section>
+
+  <aside class="side">
+    <ol class="steps" aria-label="Progress"><li id="s1" class="on"></li><li id="s2"></li><li id="s3"></li><li id="s4"></li></ol>
+
+    <!-- 1. find -->
+    <div class="pane" id="p1">
+      <h1>See solar on your own roof, in 3D</h1>
+      <p>Find your house, trace the roof, mark the tank and stairs. You get the panel layout, real sun shadows and your savings. Free, about 2 minutes.</p>
+      <div class="field">
+        <label for="q">Your address or colony</label>
+        <div class="row" style="flex-wrap:nowrap">
+          <input class="in" id="q" placeholder="e.g. Sector 13, Karnal" autocomplete="street-address">
+          <button class="btn solid" id="go">Search</button>
+        </div>
+      </div>
+      <button class="link" id="locate">Use my current location</button>
+      <div class="cities" aria-label="Jump to city">
+        <button data-c="29.3909,76.9635">Panipat</button><button data-c="29.6857,76.9905">Karnal</button>
+        <button data-c="28.9931,77.0151">Sonipat</button><button data-c="28.4595,77.0266">Gurugram</button>
+      </div>
+      <p class="msg" id="m1" role="status"></p>
+      <p>Zoom in until your roof fills the screen, then:</p>
+      <button class="btn sun wide" id="found">This is my house — trace the roof</button>
+      <button class="btn camera wide" id="camFrom1" style="margin-top:8px">Or use your camera on the roof</button>
+      <details class="manual">
+        <summary>Satellite view too blurry? Enter roof size instead</summary>
+        <div class="grid2">
+          <div class="field"><label for="rl">Length, east–west (m)</label><input class="in" id="rl" type="number" min="3" max="80" value="12"></div>
+          <div class="field"><label for="rw">Width, north–south (m)</label><input class="in" id="rw" type="number" min="3" max="80" value="9"></div>
+        </div>
+        <button class="btn wide" id="manualGo">Use this size</button>
+      </details>
+    </div>
+
+    <!-- 2. roof -->
+    <div class="pane" id="p2" hidden>
+      <h2>Tap each corner of your roof</h2>
+      <p>Go round the edge in order. Leave out the staircase room — you'll add it next.</p>
+      <div class="count" id="cnt">0</div><p>corners marked</p>
+      <div class="row">
+        <button class="btn" id="undo">Undo last</button>
+        <button class="btn" id="clear">Start again</button>
+      </div>
+      <p class="msg" id="m2" role="status"></p>
+      <button class="btn solid wide" id="roofDone" disabled style="margin-top:12px">Roof done</button>
+      <p style="margin-top:14px"><button class="link" id="back1">Back to search</button></p>
+    </div>
+
+    <!-- 3. obstacles + bill -->
+    <div class="pane" id="p3" hidden>
+      <h2>What else is on the roof?</h2>
+      <p>Pick one, then tap where it is. These cast shadows, so panels stay clear of them.</p>
+      <div class="chips" role="group" aria-label="Obstacle type">
+        <button class="chip" data-t="tank" aria-pressed="true">Water tank<small>1.5 × 1.5 m, 1.8 m high</small></button>
+        <button class="chip" data-t="stair" aria-pressed="false">Staircase room<small>3 × 3 m, 2.8 m high</small></button>
+        <button class="chip" data-t="tree" aria-pressed="false">Tree<small>4 m wide, 6 m high</small></button>
+        <button class="chip" data-t="wall" aria-pressed="false">Taller building next door<small>6 × 4 m, 4 m above you</small></button>
+      </div>
+      <ul class="olist" id="olist"><li class="none">Nothing added yet. Clear roof? Skip ahead.</li></ul>
+      <div class="field">
+        <label for="bill">Your monthly electricity bill (₹)</label>
+        <input class="in" id="bill" type="number" min="500" max="100000" step="100" value="4000" inputmode="numeric">
+      </div>
+      <button class="btn solid wide" id="build">Show my solar design</button>
+      <p style="margin-top:14px"><button class="link" id="back2">Redraw the roof</button></p>
+    </div>
+
+    <!-- 4. result -->
+    <div class="pane" id="p4" hidden>
+      <h2>Your roof, with solar</h2>
+      <div class="big"><strong id="rKw">0</strong><span>kW system</span></div>
+      <p id="rPanels"></p>
+      <div class="legend"><span><i style="background:#1D2B45"></i>Your panels</span><span><i style="background:#E9F79A"></i>Space for more</span><span><i style="background:#F2A38A"></i>Too much shade</span></div>
+      <div id="rNote"></div>
+      <div class="stats">
+        <div><span>Electricity made</span><span id="rUnits"></span></div>
+        <div><span>Lost to shade</span><span id="rLoss"></span></div>
+        <div><span>Bill today → after</span><span id="rBill"></span></div>
+        <div><span>Project cost</span><span id="rCost"></span></div>
+        <div><span>Government subsidy</span><span id="rSub"></span></div>
+        <div class="hi"><span>You pay</span><span id="rNet"></span></div>
+        <div class="hi"><span>Or bank EMI, 10 years</span><span id="rEmi"></span></div>
+        <div><span>Money back in</span><span id="rPay"></span></div>
+      </div>
+      <p style="font-size:.9rem">Drag to turn the roof. Move the sun slider to see shadows through the day.</p>
+      <div class="actions">
+        <a class="btn solid" id="wa" target="_blank" rel="noopener">Send this design on WhatsApp — book free survey</a>
+        <button class="btn camera" id="camFrom4">See panels on your roof with camera</button>
+        <button class="btn" id="pdf">Save as PDF</button>
+        <button class="btn" id="edit">Change obstacles or bill</button>
+      </div>
+      <p class="fine">An estimate from satellite tracing and typical Haryana sunshine (about 4.5 units per kW a day). Our engineer confirms exact size, shading and price at the free survey. EMI uses PM Surya Ghar bank rates (5.75% up to ₹2 lakh, 7.90% above) with the subsidy paid into the loan; the bank decides.</p>
+    </div>
+
+    <!-- 5. camera -->
+    <div class="pane" id="p5" hidden>
+      <h2>Solar on your roof, through your camera</h2>
+      <div id="c0">
+        <p>Stand on the roof or at a high window and point the camera at the roof. Or pick a photo or video you already have.</p>
+        <div class="actions" style="margin-top:0">
+          <button class="btn solid" id="camLive">Open camera</button>
+          <label class="btn" for="camFile" style="display:block">Upload a photo or video</label>
+          <input id="camFile" type="file" accept="image/*,video/*" class="hide">
+        </div>
+        <p class="msg" id="m5" role="status"></p>
+      </div>
+      <div id="c1" class="hide">
+        <p>Drag the panels onto your roof. Pinch or use the sliders to fit them.</p>
+        <button class="btn wide" id="camFreeze" style="margin-bottom:12px">Hold this view</button>
+        <div class="ctl"><label for="cSize">Size <span id="cSizeO"></span></label><input id="cSize" type="range" min="0.3" max="3" step="0.01" value="1"></div>
+        <div class="ctl"><label for="cTurn">Turn</label><input id="cTurn" type="range" min="-180" max="180" step="1" value="0"></div>
+        <div class="ctl"><label for="cAngle">Camera angle</label><input id="cAngle" type="range" min="12" max="85" step="1" value="40"></div>
+        <div class="field" id="cBillBox"><label for="cBill">Monthly bill (₹) — sets how many panels</label><input class="in" id="cBill" type="number" min="500" max="100000" step="100" value="4000" inputmode="numeric"></div>
+        <p id="cInfo" style="font-weight:600;color:var(--ink)"></p>
+        <div class="actions">
+          <button class="btn solid" id="camRec">Make my 3D video (8 sec)</button>
+          <button class="btn" id="camShot">Save photo</button>
+        </div>
+        <div id="c2" class="hide">
+          <video id="clip" class="clip" controls playsinline loop></video>
+          <div class="actions" style="margin-top:0">
+            <button class="btn sun" id="clipShare">Share on WhatsApp</button>
+            <a class="btn" id="clipSave" download="wadhwa-solar-roof.mp4">Download video</a>
+          </div>
+        </div>
+        <p class="msg" id="m6" role="status"></p>
+        <p style="margin-top:10px"><button class="link" id="camRetake">Use a different photo or video</button></p>
+      </div>
+      <p style="margin-top:10px"><button class="link" id="camBack">Back</button></p>
+      <p class="fine">A visual preview only. Panel count comes from your bill; the free survey confirms real size and placement.</p>
+    </div>
+  </aside>
+</main>
+
+<div id="sheet" aria-hidden="true"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ===== Wadhwa Solar roof designer — core math (no DOM) =====
+// Local frame: x = east (m), y = north (m), z = up (m, 0 = roof slab top)
+var WS = (function () {
+  var RAD = Math.PI / 180;
+  var PANEL = { w: 1.134, l: 2.278, watt: 540 };   // portrait module, 540 Wp
+  var TILT = 20, BASE_H = 0.5, SETBACK = 0.6, OBST_GAP = 0.4, COL_GAP = 0.02;
+  var UNITS_PER_KW_DAY = 4.5;
+  // month shape for north India (avg = 1)
+  var MONTH_F = [0.80, 0.94, 1.10, 1.20, 1.20, 1.05, 0.86, 0.86, 0.96, 1.02, 0.91, 0.80];
+
+  // ---------- geo ----------
+  function makeFrame(lat0, lng0) {
+    var kx = Math.cos(lat0 * RAD) * 111320, ky = 110540;
+    return {
+      lat0: lat0, lng0: lng0,
+      toXY: function (lat, lng) { return { x: (lng - lng0) * kx, y: (lat - lat0) * ky }; },
+      toLL: function (x, y) { return { lat: lat0 + y / ky, lng: lng0 + x / kx }; }
+    };
+  }
+
+  // ---------- sun ----------
+  // returns {alt, az} in degrees; az measured from north, clockwise
+  function sunPos(utcMs, lat, lon) {
+    var n = (utcMs - 946728000000) / 86400000;
+    var L = (280.460 + 0.9856474 * n) % 360;
+    var g = ((357.528 + 0.9856003 * n) % 360) * RAD;
+    var lam = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * RAD;
+    var eps = (23.439 - 0.0000004 * n) * RAD;
+    var ra = Math.atan2(Math.cos(eps) * Math.sin(lam), Math.cos(lam));
+    var dec = Math.asin(Math.sin(eps) * Math.sin(lam));
+    var gmst = (18.697374558 + 24.06570982441908 * n) % 24;
+    var H = ((gmst * 15 + lon) * RAD) - ra;
+    var la = lat * RAD;
+    var alt = Math.asin(Math.sin(la) * Math.sin(dec) + Math.cos(la) * Math.cos(dec) * Math.cos(H));
+    var az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(la) - Math.tan(dec) * Math.cos(la)) / RAD + 180;
+    return { alt: alt / RAD, az: ((az % 360) + 360) % 360 };
+  }
+  // IST local time -> UTC ms
+  function istMs(year, month, day, hour) {
+    return Date.UTC(year, month, day, 0, 0, 0) + (hour - 5.5) * 3600000;
+  }
+  function sunVec(alt, az) {
+    var a = alt * RAD, z = az * RAD;
+    return { x: Math.cos(a) * Math.sin(z), y: Math.cos(a) * Math.cos(z), z: Math.sin(a) };
+  }
+
+  // ---------- polygon helpers ----------
+  function inPoly(p, poly) {
+    var c = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var a = poly[i], b = poly[j];
+      if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) c = !c;
+    }
+    return c;
+  }
+  function distSeg(p, a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y, t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1);
+    t = Math.max(0, Math.min(1, t));
+    var ex = a.x + t * dx - p.x, ey = a.y + t * dy - p.y;
+    return Math.sqrt(ex * ex + ey * ey);
+  }
+  function minEdgeDist(p, poly) {
+    var m = Infinity;
+    for (var i = 0; i < poly.length; i++) m = Math.min(m, distSeg(p, poly[i], poly[(i + 1) % poly.length]));
+    return m;
+  }
+  function polyArea(poly) {
+    var s = 0;
+    for (var i = 0; i < poly.length; i++) { var a = poly[i], b = poly[(i + 1) % poly.length]; s += a.x * b.y - b.x * a.y; }
+    return Math.abs(s) / 2;
+  }
+  function rectsOverlap(a, b) { return a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0; }
+
+  // obstacle: {x, y (centre), w (E-W), d (N-S), h (height above roof)}
+  function obstBox(o, pad) {
+    pad = pad || 0;
+    return { x0: o.x - o.w / 2 - pad, x1: o.x + o.w / 2 + pad, y0: o.y - o.d / 2 - pad, y1: o.y + o.d / 2 + pad, z0: 0, z1: o.h };
+  }
+
+  // ---------- panel layout ----------
+  // lat decides row spacing (no row shades the next at winter noon)
+  function layout(poly, obstacles, lat) {
+    var D = PANEL.l * Math.cos(TILT * RAD);
+    var rise = PANEL.l * Math.sin(TILT * RAD);
+    var winterNoon = Math.max(20, 90 - lat - 23.44);
+    var pitch = D + rise / Math.tan(winterNoon * RAD);
+    var colW = PANEL.w + COL_GAP;
+    var xs = poly.map(function (p) { return p.x; }), ys = poly.map(function (p) { return p.y; });
+    var bx0 = Math.min.apply(null, xs), bx1 = Math.max.apply(null, xs), by0 = Math.min.apply(null, ys), by1 = Math.max.apply(null, ys);
+    var boxes = obstacles.map(function (o) { return obstBox(o, OBST_GAP); });
+    var best = [];
+    for (var ox = 0; ox < 3; ox++) for (var oy = 0; oy < 3; oy++) {
+      var out = [];
+      for (var y = by0 + SETBACK + oy * pitch / 3; y + D <= by1; y += pitch) {
+        for (var x = bx0 + SETBACK + ox * colW / 3; x + PANEL.w <= bx1; x += colW) {
+          var r = { x0: x, x1: x + PANEL.w, y0: y, y1: y + D };
+          var cs = [{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x0, y: r.y1 }, { x: r.x1, y: r.y1 }];
+          var ok = cs.every(function (c) { return inPoly(c, poly) && minEdgeDist(c, poly) >= SETBACK - 1e-6; });
+          if (ok) ok = !boxes.some(function (b) { return rectsOverlap(r, b); });
+          if (ok) out.push({ x0: r.x0, x1: r.x1, y0: r.y0, y1: r.y1, cx: (r.x0 + r.x1) / 2, cy: (r.y0 + r.y1) / 2 });
+        }
+      }
+      if (out.length > best.length) best = out;
+    }
+    return { panels: best, pitch: pitch, D: D, rise: rise };
+  }
+
+  // ---------- shading ----------
+  function rayHitsBox(p, d, b) {
+    var tmin = 0.001, tmax = 1e9, o = [p.x, p.y, p.z], v = [d.x, d.y, d.z];
+    var lo = [b.x0, b.y0, b.z0], hi = [b.x1, b.y1, b.z1];
+    for (var i = 0; i < 3; i++) {
+      if (Math.abs(v[i]) < 1e-9) { if (o[i] < lo[i] || o[i] > hi[i]) return false; continue; }
+      var t1 = (lo[i] - o[i]) / v[i], t2 = (hi[i] - o[i]) / v[i];
+      if (t1 > t2) { var t = t1; t1 = t2; t2 = t; }
+      tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+      if (tmin > tmax) return false;
+    }
+    return true;
+  }
+  // sample sun over a year (15th of each month, every 30 min), weighted by sin(alt)
+  var _sunCache = {};
+  function yearSun(lat, lon) {
+    var k = lat.toFixed(2) + ',' + lon.toFixed(2);
+    if (_sunCache[k]) return _sunCache[k];
+    var s = [];
+    for (var m = 0; m < 12; m++) for (var h = 6; h <= 19; h += 0.5) {
+      var sp = sunPos(istMs(2026, m, 15, h), lat, lon);
+      if (sp.alt > 5) s.push({ v: sunVec(sp.alt, sp.az), w: Math.sin(sp.alt * RAD) * MONTH_F[m] });
+    }
+    return (_sunCache[k] = s);
+  }
+  // returns shade fraction (0..1) for each panel
+  function shade(panels, obstacles, lat, lon, geo) {
+    var sun = yearSun(lat, lon), boxes = obstacles.map(function (o) { return obstBox(o, 0); });
+    var total = sun.reduce(function (a, s) { return a + s.w; }, 0);
+    return panels.map(function (p) {
+      // 3 sample points up the slope (south edge low, north edge high)
+      var pts = [0.15, 0.5, 0.85].map(function (f) {
+        return { x: p.cx, y: p.y0 + f * geo.D, z: BASE_H + f * geo.rise };
+      });
+      var lost = 0;
+      for (var i = 0; i < sun.length; i++) {
+        var hit = 0;
+        for (var j = 0; j < pts.length; j++) {
+          for (var k = 0; k < boxes.length; k++) if (rayHitsBox(pts[j], sun[i].v, boxes[k])) { hit++; break; }
+        }
+        lost += sun[i].w * hit / pts.length;
+      }
+      return boxes.length ? lost / total : 0;
+    });
+  }
+
+  // ---------- money (same rules as the website calculator) ----------
+  function money(n) { return '\u20B9' + Math.round(n).toLocaleString('en-IN'); }
+  function kwForBill(bill) { return Math.min(15, Math.max(1, Math.round((bill / 8 / 135) * 2) / 2)); }
+  function finance(kw, bill) {
+    var rate = kw <= 3 ? 68000 : (kw <= 10 ? 58000 : 50000);
+    var cost = kw * rate;
+    var sub = kw > 10 ? 0 : (kw >= 3 ? 78000 : (kw >= 2 ? 60000 + (kw - 2) * 18000 : kw * 30000));
+    var net = cost - sub, emi = null;
+    if (kw <= 10) {
+      var loan = Math.min(cost * 0.9, 600000), r = (loan <= 200000 ? 5.75 : 7.90) / 1200, n = 120, P = Math.max(loan - sub, 0);
+      if (P > 0) emi = Math.round(P * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1) / 10) * 10;
+    }
+    return { cost: cost, sub: sub, net: net, emi: emi };
+  }
+
+  // ---------- full design ----------
+  function design(poly, obstacles, lat, lon, bill) {
+    var geo = layout(poly, obstacles, lat);
+    var sh = shade(geo.panels, obstacles, lat, lon, geo);
+    geo.panels.forEach(function (p, i) { p.shade = sh[i]; });
+    var usable = geo.panels.filter(function (p) { return p.shade <= 0.2; })
+      .sort(function (a, b) { return a.shade - b.shade; });
+    var needKw = kwForBill(bill);
+    var need = Math.ceil(needKw * 1000 / PANEL.watt);
+    var chosen = usable.slice(0, need);
+    chosen.forEach(function (p) { p.used = true; });
+    var kw = +(chosen.length * PANEL.watt / 1000).toFixed(2);
+    var loss = chosen.length ? chosen.reduce(function (a, p) { return a + p.shade; }, 0) / chosen.length : 0;
+    var unitsMonth = kw * UNITS_PER_KW_DAY * 30.4 * (1 - loss);
+    var billAfter = Math.max(bill - unitsMonth * 8, bill * 0.08);
+    var f = finance(kw, bill);
+    return {
+      geo: geo, panels: geo.panels, chosen: chosen.length, fit: usable.length, all: geo.panels.length,
+      maxKw: +(usable.length * PANEL.watt / 1000).toFixed(2), needKw: needKw, kw: kw,
+      loss: loss, unitsMonth: unitsMonth, unitsYear: unitsMonth * 12, billAfter: billAfter,
+      area: polyArea(poly), finance: f,
+      payback: f.net / Math.max(1, (bill - billAfter) * 12)
+    };
+  }
+
+  return { PANEL: PANEL, TILT: TILT, BASE_H: BASE_H, MONTH_F: MONTH_F, makeFrame: makeFrame, sunPos: sunPos, istMs: istMs,
+           sunVec: sunVec, layout: layout, shade: shade, design: design, finance: finance, money: money, kwForBill: kwForBill, polyArea: polyArea };
+})();
+if (typeof module !== 'undefined') module.exports = WS;
+
+</script>
+<script>
+(function () {
+  var WA_NUMBER = '917027763605';
+  var $ = function (id) { return document.getElementById(id); };
+  var OBST = {
+    tank:  { name: 'Water tank', w: 1.5, d: 1.5, h: 1.8, color: '#2B2B2B' },
+    stair: { name: 'Staircase room', w: 3, d: 3, h: 2.8, color: '#CFC9BC' },
+    tree:  { name: 'Tree', w: 4, d: 4, h: 6, color: '#4F7A3A' },
+    wall:  { name: 'Building next door', w: 6, d: 4, h: 4, color: '#B7B0A2' }
+  };
+  var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  var st = { step: 1, pts: [], frame: null, poly: null, obst: [], type: 'tank', result: null };
+
+  // ---------- map ----------
+  var map = L.map('map', { zoomControl: true, maxZoom: 21 }).setView([29.3909, 76.9635], 17);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxNativeZoom: 19, maxZoom: 21,
+    attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics'
+  }).addTo(map);
+  var layer = L.layerGroup().addTo(map), obstLayer = L.layerGroup().addTo(map);
+
+  function setStep(n) {
+    st.step = n;
+    [1, 2, 3, 4].forEach(function (i) {
+      $('p' + i).hidden = i !== n;
+      $('s' + i).className = i < n ? 'done' : (i === n ? 'on' : '');
+    });
+    var hints = { 1: 'Find your house on the map', 2: 'Tap each corner of your roof', 3: 'Tap to place the tank, stairs or trees', 4: 'Drag to turn · pinch to zoom' };
+    $('hint').textContent = hints[n];
+    var in3d = n === 4;
+    $('map').hidden = in3d; $('view3d').hidden = !in3d; $('sunbar').classList.toggle('on', in3d);
+    if (!in3d) setTimeout(function () { map.invalidateSize(); }, 0);
+    $('map').style.cursor = (n === 2 || n === 3) ? 'crosshair' : '';
+    document.querySelector('.side').scrollTop = 0;
+  }
+
+  // ---------- step 1 ----------
+  function search() {
+    var q = $('q').value.trim();
+    if (!q) { $('m1').textContent = 'Type your colony, sector or street first.'; return; }
+    $('m1').textContent = 'Searching…';
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=' + encodeURIComponent(q + ', Haryana'))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.length) { $('m1').textContent = 'Not found. Try a nearby landmark, or use the city buttons and zoom in.'; return; }
+        map.setView([+d[0].lat, +d[0].lon], 18); $('m1').textContent = 'Now zoom in to your roof.';
+      })
+      .catch(function () { $('m1').textContent = 'Search is not working right now. Use the city buttons and zoom in.'; });
+  }
+  $('go').onclick = search;
+  $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter') search(); });
+  $('locate').onclick = function () {
+    if (!navigator.geolocation) { $('m1').textContent = 'Location is not available on this device.'; return; }
+    $('m1').textContent = 'Finding you…';
+    navigator.geolocation.getCurrentPosition(function (p) {
+      map.setView([p.coords.latitude, p.coords.longitude], 19); $('m1').textContent = 'Check the map is on your house, then continue.';
+    }, function () { $('m1').textContent = 'Location was blocked. Search instead.'; }, { enableHighAccuracy: true, timeout: 10000 });
+  };
+  document.querySelectorAll('.cities button').forEach(function (b) {
+    b.onclick = function () { var c = b.dataset.c.split(','); map.setView([+c[0], +c[1]], 16); };
+  });
+  $('found').onclick = function () {
+    if (map.getZoom() < 17) { $('m1').textContent = 'Zoom in closer so your roof is clear, then tap again.'; return; }
+    var c = map.getCenter(); st.frame = WS.makeFrame(c.lat, c.lng);
+    st.pts = []; drawRoof(); setStep(2);
+  };
+  $('manualGo').onclick = function () {
+    var L1 = Math.min(80, Math.max(3, +$('rl').value || 12)), W1 = Math.min(80, Math.max(3, +$('rw').value || 9));
+    var c = map.getCenter(); st.frame = WS.makeFrame(c.lat, c.lng);
+    st.pts = [[-L1 / 2, -W1 / 2], [L1 / 2, -W1 / 2], [L1 / 2, W1 / 2], [-L1 / 2, W1 / 2]].map(function (p) { return st.frame.toLL(p[0], p[1]); });
+    if (map.getZoom() < 18) map.setView(c, 19);
+    finishRoof();
+  };
+
+  // ---------- step 2 ----------
+  function drawRoof() {
+    layer.clearLayers();
+    var ll = st.pts.map(function (p) { return [p.lat, p.lng]; });
+    if (ll.length > 1) L.polygon(ll, { color: '#FFD84D', weight: 3, fillColor: '#E9F79A', fillOpacity: .25, dashArray: st.step === 2 ? '6 6' : null }).addTo(layer);
+    if (st.step === 2) ll.forEach(function (p, i) {
+      L.marker(p, { icon: L.divIcon({ className: 'vtx' + (i === 0 ? ' first' : ''), iconSize: [16, 16] }), interactive: false }).addTo(layer);
+    });
+    $('cnt').textContent = st.pts.length;
+    $('roofDone').disabled = st.pts.length < 3;
+  }
+  $('undo').onclick = function () { st.pts.pop(); drawRoof(); };
+  $('clear').onclick = function () { st.pts = []; drawRoof(); };
+  $('back1').onclick = function () { st.pts = []; layer.clearLayers(); setStep(1); };
+  $('roofDone').onclick = function () { finishRoof(); };
+  function finishRoof() {
+    var poly = st.pts.map(function (p) { return st.frame.toXY(p.lat, p.lng); });
+    var area = WS.polyArea(poly);
+    if (area < 8) { $('m2').textContent = 'That roof looks very small. Zoom in and tap the real corners.'; return; }
+    if (area > 5000) { $('m2').textContent = 'That is bigger than a house roof. Check the corners.'; return; }
+    st.poly = poly; $('m2').textContent = '';
+    setStep(3); drawRoof(); drawObst();
+  }
+
+  // ---------- step 3 ----------
+  document.querySelectorAll('.chip').forEach(function (b) {
+    b.onclick = function () {
+      st.type = b.dataset.t;
+      document.querySelectorAll('.chip').forEach(function (c) { c.setAttribute('aria-pressed', c === b ? 'true' : 'false'); });
+    };
+  });
+  function obstLL(o) {
+    var f = st.frame;
+    return [f.toLL(o.x - o.w / 2, o.y - o.d / 2), f.toLL(o.x + o.w / 2, o.y - o.d / 2), f.toLL(o.x + o.w / 2, o.y + o.d / 2), f.toLL(o.x - o.w / 2, o.y + o.d / 2)]
+      .map(function (p) { return [p.lat, p.lng]; });
+  }
+  function drawObst() {
+    obstLayer.clearLayers();
+    st.obst.forEach(function (o) {
+      L.polygon(obstLL(o), { color: '#141414', weight: 2, fillColor: OBST[o.t].color, fillOpacity: .85 }).addTo(obstLayer);
+    });
+    var ul = $('olist');
+    ul.innerHTML = st.obst.length ? '' : '<li class="none">Nothing added yet. Clear roof? Skip ahead.</li>';
+    st.obst.forEach(function (o, i) {
+      var li = document.createElement('li');
+      li.innerHTML = '<span>' + OBST[o.t].name + '</span>';
+      var b = document.createElement('button'); b.textContent = 'Remove'; b.setAttribute('aria-label', 'Remove ' + OBST[o.t].name);
+      b.onclick = function () { st.obst.splice(i, 1); drawObst(); };
+      li.appendChild(b); ul.appendChild(li);
+    });
+  }
+  map.on('click', function (e) {
+    if (st.step === 2) { st.pts.push(e.latlng); drawRoof(); }
+    else if (st.step === 3) {
+      var p = st.frame.toXY(e.latlng.lat, e.latlng.lng), o = OBST[st.type];
+      st.obst.push({ t: st.type, x: p.x, y: p.y, w: o.w, d: o.d, h: o.h }); drawObst();
+    }
+  });
+  $('back2').onclick = function () { st.obst = []; drawObst(); st.pts = []; setStep(2); drawRoof(); };
+  $('build').onclick = function () {
+    var bill = Math.min(100000, Math.max(500, +$('bill').value || 4000));
+    $('bill').value = bill;
+    var c = st.frame;
+    st.result = WS.design(st.poly, st.obst, c.lat0, c.lng0, bill);
+    st.result.bill = bill;
+    showResult(); setStep(4); build3d();
+  };
+  $('edit').onclick = function () { setStep(3); drawRoof(); drawObst(); };
+
+  // ---------- step 4: numbers ----------
+  function showResult() {
+    var r = st.result, f = r.finance, M = WS.money;
+    $('rKw').textContent = r.kw;
+    $('rPanels').textContent = r.chosen + ' panels of 540 W, on about ' + Math.round(r.area) + ' m² of roof.';
+    var note = '';
+    if (!r.chosen) note = '<div class="note warn">No shade-free space for panels was found. Check the roof outline, or call us — some roofs need a raised structure.</div>';
+    else if (r.chosen * WS.PANEL.watt / 1000 < r.needKw - 0.3) note = '<div class="note warn">Your bill needs about ' + r.needKw + ' kW, but your roof fits ' + r.maxKw + ' kW without heavy shade. A raised structure over the tank or stairs can add space.</div>';
+    else if (r.fit > r.chosen) note = '<div class="note">Your roof fits up to ' + r.maxKw + ' kW — room to grow if your bill goes up.</div>';
+    $('rNote').innerHTML = note;
+    $('rUnits').textContent = '~' + Math.round(r.unitsMonth).toLocaleString('en-IN') + ' units a month';
+    $('rLoss').textContent = (r.loss * 100).toFixed(1) + '%';
+    $('rBill').textContent = M(r.bill) + ' → ~' + M(r.billAfter);
+    $('rCost').textContent = M(f.cost);
+    $('rSub').textContent = r.kw > 10 ? 'Not applicable above 10 kW' : M(f.sub);
+    $('rNet').textContent = M(f.net);
+    $('rEmi').textContent = f.emi ? '~' + M(f.emi) + ' a month' : 'Not applicable';
+    $('rPay').textContent = r.payback.toFixed(1) + ' years';
+    var c = st.frame, loc = 'https://maps.google.com/?q=' + c.lat0.toFixed(6) + ',' + c.lng0.toFixed(6);
+    var txt = 'Namaste Wadhwa Solar! I designed my roof on your website.\n\n' +
+      '☀️ ' + r.kw + ' kW, ' + r.chosen + ' panels\n⚡ ~' + Math.round(r.unitsMonth) + ' units/month, shade loss ' + (r.loss * 100).toFixed(1) + '%\n' +
+      '🧾 Bill ' + M(r.bill) + '/month\n📍 ' + loc + '\n\nPlease book my free survey.';
+    $('wa').href = 'https://wa.me/' + WA_NUMBER + '?text=' + encodeURIComponent(txt);
+  }
+
+  // ---------- step 4: 3D ----------
+  var R = null;
+  var panelTex = (function () {
+    var cv = document.createElement('canvas'); cv.width = 128; cv.height = 256;
+    var g = cv.getContext('2d'); g.fillStyle = '#1D2B45'; g.fillRect(0, 0, 128, 256);
+    g.strokeStyle = '#4A6286'; g.lineWidth = 2;
+    for (var x = 0; x <= 128; x += 21.3) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 256); g.stroke(); }
+    for (var y = 0; y <= 256; y += 21.3) { g.beginPath(); g.moveTo(0, y); g.lineTo(128, y); g.stroke(); }
+    g.strokeStyle = '#C9D1DC'; g.lineWidth = 6; g.strokeRect(0, 0, 128, 256);
+    var t = new THREE.CanvasTexture(cv); return t;
+  })();
+
+  function build3d() {
+    var box = $('view3d');
+    if (!R) {
+      var renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      box.appendChild(renderer.domElement);
+      var camera = new THREE.PerspectiveCamera(40, 1, 0.1, 2000);
+      var controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 6; controls.maxDistance = 160;
+      R = { renderer: renderer, camera: camera, controls: controls, scene: null };
+      var loop = function () { requestAnimationFrame(loop); if (R.scene && !$('view3d').hidden) { R.controls.update(); R.renderer.render(R.scene, R.camera); } };
+      loop();
+      window.addEventListener('resize', resize3d);
+      var ms = $('month'); MONTHS.forEach(function (m, i) { var o = document.createElement('option'); o.value = i; o.textContent = '15 ' + m; ms.appendChild(o); });
+      ms.value = new Date().getMonth();
+      ms.onchange = updateSun; $('hour').oninput = updateSun;
+    }
+    var scene = new THREE.Scene(); R.scene = scene;
+    scene.background = new THREE.Color(0xE4ECEF); scene.fog = new THREE.Fog(0xE4ECEF, 120, 420);
+    var r = st.result, poly = st.poly, H = 3.2;
+    var xs = poly.map(function (p) { return p.x; }), ys = poly.map(function (p) { return p.y; });
+    var cx = (Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2, cy = (Math.min.apply(null, ys) + Math.max.apply(null, ys)) / 2;
+    var span = Math.max(Math.max.apply(null, xs) - Math.min.apply(null, xs), Math.max.apply(null, ys) - Math.min.apply(null, ys), 8);
+    R.center = new THREE.Vector3(cx, H, -cy); R.span = span; R.H = H;
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b3a4, 0.55));
+    var sun = new THREE.DirectionalLight(0xfff3d6, 1.05);
+    sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+    var sc = sun.shadow.camera, e = span * 1.6 + 10; sc.left = -e; sc.right = e; sc.top = e; sc.bottom = -e; sc.near = 1; sc.far = 400;
+    sun.shadow.bias = -0.0008; sun.target.position.copy(R.center);
+    scene.add(sun); scene.add(sun.target); R.sun = sun;
+    var sunBall = new THREE.Mesh(new THREE.SphereGeometry(1.4, 24, 16), new THREE.MeshBasicMaterial({ color: 0xFFD84D }));
+    scene.add(sunBall); R.sunBall = sunBall;
+
+    // ground
+    var ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshLambertMaterial({ color: 0xD9D2C1 }));
+    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+    // building
+    var shape = new THREE.Shape(poly.map(function (p) { return new THREE.Vector2(p.x, p.y); }));
+    var bld = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: H, bevelEnabled: false }),
+      [new THREE.MeshLambertMaterial({ color: 0xF1ECE2 }), new THREE.MeshLambertMaterial({ color: 0xD8D1C3 })]);
+    bld.rotation.x = -Math.PI / 2; bld.castShadow = true; bld.receiveShadow = true; scene.add(bld);
+    var edge = new THREE.LineSegments(new THREE.EdgesGeometry(bld.geometry), new THREE.LineBasicMaterial({ color: 0x141414 }));
+    edge.rotation.x = -Math.PI / 2; scene.add(edge);
+
+    // obstacles
+    st.obst.forEach(function (o) {
+      var mat = new THREE.MeshLambertMaterial({ color: OBST[o.t].color }), m;
+      if (o.t === 'tree') {
+        m = new THREE.Group();
+        var trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, o.h * 0.45, 8), new THREE.MeshLambertMaterial({ color: 0x6B4F33 }));
+        trunk.position.y = o.h * 0.225; m.add(trunk);
+        var crown = new THREE.Mesh(new THREE.SphereGeometry(o.w / 2, 16, 12), mat);
+        crown.position.y = o.h - o.w / 2; crown.scale.y = 1.1; m.add(crown);
+        m.traverse(function (c) { c.castShadow = true; });
+        m.position.set(o.x, H, -o.y);
+      } else if (o.t === 'tank') {
+        m = new THREE.Mesh(new THREE.CylinderGeometry(o.w / 2, o.w / 2, o.h, 24), mat);
+        m.position.set(o.x, H + o.h / 2, -o.y); m.castShadow = true;
+      } else {
+        m = new THREE.Mesh(new THREE.BoxGeometry(o.w, o.h, o.d), mat);
+        m.position.set(o.x, H + o.h / 2, -o.y); m.castShadow = true; m.receiveShadow = true;
+      }
+      scene.add(m);
+    });
+
+    // panels
+    var P = WS.PANEL, tilt = WS.TILT * Math.PI / 180, D = r.geo.D, rise = r.geo.rise;
+    var gPanel = new THREE.BoxGeometry(P.w, 0.04, P.l);
+    var mUsed = [new THREE.MeshStandardMaterial({ color: 0xC9D1DC }), new THREE.MeshStandardMaterial({ color: 0xC9D1DC }),
+                 new THREE.MeshStandardMaterial({ map: panelTex, roughness: .35, metalness: .3 }), new THREE.MeshStandardMaterial({ color: 0x9AA6B5 }),
+                 new THREE.MeshStandardMaterial({ color: 0xC9D1DC }), new THREE.MeshStandardMaterial({ color: 0xC9D1DC })];
+    var mFree = new THREE.MeshLambertMaterial({ color: 0xE9F79A, transparent: true, opacity: .55 });
+    var mShade = new THREE.MeshLambertMaterial({ color: 0xF2A38A, transparent: true, opacity: .6 });
+    var gLeg = new THREE.BoxGeometry(0.05, 1, 0.05), mLeg = new THREE.MeshLambertMaterial({ color: 0x8C8C8C });
+    r.panels.forEach(function (p) {
+      var used = !!p.used, mat = used ? mUsed : (p.shade > 0.2 ? mShade : mFree);
+      var mesh = new THREE.Mesh(gPanel, mat);
+      mesh.rotation.x = tilt;
+      mesh.position.set(p.cx, H + WS.BASE_H + rise / 2, -(p.y0 + D / 2));
+      mesh.castShadow = used; mesh.receiveShadow = true; scene.add(mesh);
+      if (used) [[p.x0 + 0.1, p.y0 + 0.05, WS.BASE_H], [p.x1 - 0.1, p.y0 + 0.05, WS.BASE_H], [p.x0 + 0.1, p.y1 - 0.05, WS.BASE_H + rise], [p.x1 - 0.1, p.y1 - 0.05, WS.BASE_H + rise]]
+        .forEach(function (l) { var g = new THREE.Mesh(gLeg, mLeg); g.scale.y = l[2]; g.position.set(l[0], H + l[2] / 2, -l[1]); scene.add(g); });
+    });
+
+    // north arrow
+    var cv = document.createElement('canvas'); cv.width = cv.height = 128;
+    var g2 = cv.getContext('2d'); g2.fillStyle = '#141414'; g2.beginPath(); g2.moveTo(64, 6); g2.lineTo(100, 70); g2.lineTo(28, 70); g2.fill();
+    g2.font = 'bold 50px sans-serif'; g2.textAlign = 'center'; g2.fillText('N', 64, 122);
+    var spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv) }));
+    spr.scale.set(3, 3, 1); spr.position.set(cx, 1.6, -(Math.max.apply(null, ys) + 4)); scene.add(spr);
+
+    R.camera.position.set(cx + span * 0.9, H + span * 1.0, -cy + span * 1.4);
+    R.controls.target.copy(R.center); R.controls.update();
+    resize3d(); updateSun();
+  }
+  function resize3d() {
+    if (!R) return;
+    var b = $('view3d'), w = b.clientWidth || 600, h = b.clientHeight || 400;
+    R.renderer.setSize(w, h); R.camera.aspect = w / h; R.camera.updateProjectionMatrix();
+  }
+  function fmtHour(h) {
+    var hh = Math.floor(h), mm = Math.round((h - hh) * 60), ap = hh >= 12 ? 'pm' : 'am', h12 = ((hh + 11) % 12) + 1;
+    return h12 + ':' + (mm < 10 ? '0' : '') + mm + ' ' + ap;
+  }
+  function updateSun() {
+    if (!R || !R.sun) return;
+    var m = +$('month').value, h = +$('hour').value, f = st.frame;
+    $('hourOut').textContent = fmtHour(h);
+    var sp = WS.sunPos(WS.istMs(2026, m, 15, h), f.lat0, f.lng0), v = WS.sunVec(sp.alt, sp.az);
+    var dist = R.span * 2 + 30, up = sp.alt > 0;
+    R.sun.position.set(R.center.x + v.x * dist, R.center.y + v.z * dist, R.center.z - v.y * dist);
+    R.sun.intensity = up ? 0.35 + 0.8 * Math.sin(Math.max(0, sp.alt) * Math.PI / 180) : 0;
+    R.sunBall.visible = up; R.sunBall.position.copy(R.sun.position).sub(R.center).setLength(R.span * 1.3 + 12).add(R.center);
+  }
+  window.addEventListener('resize', function () { if (st.step === 4) resize3d(); });
+
+  // ---------- PDF ----------
+  $('pdf').onclick = function () {
+    if (!R) return;
+    R.renderer.render(R.scene, R.camera);
+    var img = R.renderer.domElement.toDataURL('image/jpeg', 0.9), r = st.result, f = r.finance, M = WS.money;
+    var rows = [['System size', r.kw + ' kW (' + r.chosen + ' × 540 W panels)'], ['Electricity made', '~' + Math.round(r.unitsMonth) + ' units a month'],
+      ['Lost to shade', (r.loss * 100).toFixed(1) + '%'], ['Bill today → after', M(r.bill) + ' → ~' + M(r.billAfter)], ['Project cost', M(f.cost)],
+      ['Government subsidy', r.kw > 10 ? 'Not applicable' : M(f.sub)], ['You pay', M(f.net)], ['Or bank EMI, 10 years', f.emi ? '~' + M(f.emi) + ' a month' : 'Not applicable'],
+      ['Money back in', r.payback.toFixed(1) + ' years']];
+    $('sheet').innerHTML = '<h1>Your solar roof — Wadhwa Solar</h1><p>' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) +
+      ' · Location ' + st.frame.lat0.toFixed(5) + ', ' + st.frame.lng0.toFixed(5) + '</p><img src="' + img + '" alt="3D design"><table>' +
+      rows.map(function (x) { return '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>'; }).join('') +
+      '</table><p style="margin-top:6mm">Estimate only — confirmed at the free survey. Call or WhatsApp +91 70277 63605.</p>';
+    setTimeout(function () { window.print(); }, 50);
+  };
+
+  // =================== CAMERA MODE ===================
+  var C = { on: false, from: 1, stream: null, video: document.createElement('video'), img: null, src: null,
+            recording: false, t0: 0, appear: 0, blob: null, pointers: {}, pinch: null };
+  C.video.muted = true; C.video.playsInline = true; C.video.setAttribute('playsinline', ''); C.video.loop = true;
+  var cv = $('camCanvas'), cx2 = cv.getContext('2d');
+  var T = null; // three.js bits for the overlay
+
+  function camPanels() {
+    if (st.result && st.result.chosen) return { n: st.result.chosen, kw: st.result.kw };
+    var bill = Math.min(100000, Math.max(500, +$('cBill').value || 4000));
+    var n = Math.ceil(WS.kwForBill(bill) * 1000 / WS.PANEL.watt);
+    return { n: n, kw: +(n * WS.PANEL.watt / 1000).toFixed(2) };
+  }
+  function initThree() {
+    if (T) return;
+    var r = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+    r.setClearColor(0x000000, 0); r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    var scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x9a948a, 0.75));
+    var sun = new THREE.DirectionalLight(0xfff1d0, 0.9); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+    var sc = sun.shadow.camera; sc.left = -25; sc.right = 25; sc.top = 25; sc.bottom = -25; sc.near = 1; sc.far = 200; sun.shadow.bias = -0.0006;
+    scene.add(sun); scene.add(sun.target);
+    var catcher = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: 0.35 }));
+    catcher.rotation.x = -Math.PI / 2; catcher.receiveShadow = true; scene.add(catcher);
+    var group = new THREE.Group(); scene.add(group);
+    T = { r: r, scene: scene, cam: cam, sun: sun, group: group, panels: [], n: 0 };
+  }
+  function buildArray() {
+    initThree();
+    var g = T.group; while (g.children.length) g.remove(g.children[0]);
+    var info = camPanels(), n = info.n, P = WS.PANEL, tilt = WS.TILT * Math.PI / 180;
+    var D = P.l * Math.cos(tilt), rise = P.l * Math.sin(tilt), pitch = D + 1.1;
+    var cols = Math.max(1, Math.min(n, Math.ceil(Math.sqrt(n * 2.2)))), rows = Math.ceil(n / cols);
+    var mat = new THREE.MeshStandardMaterial({ map: panelTex, roughness: .35, metalness: .3 });
+    var frame = new THREE.MeshStandardMaterial({ color: 0xC9D1DC });
+    var mats = [frame, frame, mat, new THREE.MeshStandardMaterial({ color: 0x9AA6B5 }), frame, frame];
+    var gP = new THREE.BoxGeometry(P.w, 0.04, P.l), gL = new THREE.BoxGeometry(0.05, 1, 0.05), mL = new THREE.MeshLambertMaterial({ color: 0x8C8C8C });
+    var w = cols * (P.w + 0.02), d = (rows - 1) * pitch + D;
+    T.panels = [];
+    for (var i = 0; i < n; i++) {
+      var c = i % cols, rr = Math.floor(i / cols);
+      var unit = new THREE.Group();
+      var m = new THREE.Mesh(gP, mats); m.rotation.x = tilt; m.position.y = WS.BASE_H + rise / 2; m.castShadow = true; unit.add(m);
+      [[-P.w / 2 + 0.1, D / 2 - 0.05, WS.BASE_H], [P.w / 2 - 0.1, D / 2 - 0.05, WS.BASE_H], [-P.w / 2 + 0.1, -D / 2 + 0.05, WS.BASE_H + rise], [P.w / 2 - 0.1, -D / 2 + 0.05, WS.BASE_H + rise]]
+        .forEach(function (l) { var leg = new THREE.Mesh(gL, mL); leg.scale.y = l[2]; leg.position.set(l[0], l[2] / 2, l[1]); leg.castShadow = true; unit.add(leg); });
+      unit.position.set(-w / 2 + (c + 0.5) * (P.w + 0.02), 0, d / 2 - D / 2 - rr * pitch);
+      g.add(unit); T.panels.push(unit);
+    }
+    T.n = n; T.kw = info.kw;
+    $('cInfo').textContent = n + ' panels · ' + info.kw + ' kW';
+    placeSun();
+  }
+  function placeSun() {
+    if (!T) return;
+    var f = st.frame || { lat0: 29.39, lng0: 76.97 }, now = new Date();
+    var sp = WS.sunPos(WS.istMs(now.getFullYear(), now.getMonth(), 15, 11), f.lat0, f.lng0), v = WS.sunVec(sp.alt, sp.az);
+    var turn = +$('cTurn').value * Math.PI / 180;       // sun turns with the array's "north"
+    var x = v.x * Math.cos(turn) - v.y * Math.sin(turn), y = v.x * Math.sin(turn) + v.y * Math.cos(turn);
+    T.sun.position.set(x * 60 + T.group.position.x, v.z * 60, -y * 60 + T.group.position.z);
+    T.sun.target.position.copy(T.group.position);
+  }
+  function sizeCanvas() {
+    var box = $('camWrap'), dpr = Math.min(2, window.devicePixelRatio || 1);
+    var w = Math.max(320, box.clientWidth), h = Math.max(240, box.clientHeight);
+    var k = Math.min(1, 1280 / (w * dpr));
+    cv.width = Math.round(w * dpr * k); cv.height = Math.round(h * dpr * k);
+    if (T) { T.r.setSize(cv.width, cv.height, false); T.cam.aspect = cv.width / cv.height; T.cam.updateProjectionMatrix(); }
+  }
+  function drawCover(src, sw, sh) {
+    var W = cv.width, H = cv.height, s = Math.max(W / sw, H / sh), dw = sw * s, dh = sh * s;
+    cx2.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  }
+  function camLoop(ts) {
+    if (!C.on) return;
+    requestAnimationFrame(camLoop);
+    var W = cv.width, H = cv.height;
+    cx2.fillStyle = '#141414'; cx2.fillRect(0, 0, W, H);
+    if (C.src === 'video' && C.video.readyState >= 2) drawCover(C.video, C.video.videoWidth, C.video.videoHeight);
+    else if (C.src === 'img' && C.img) drawCover(C.img, C.img.width, C.img.height);
+    if (!T || !C.src) return;
+    // camera from the angle slider
+    var a = +$('cAngle').value * Math.PI / 180, dist = 16;
+    T.cam.position.set(0, Math.sin(a) * dist, Math.cos(a) * dist); T.cam.lookAt(0, 0, 0);
+    var s = +$('cSize').value, turn = +$('cTurn').value * Math.PI / 180;
+    // recording animation: panels drop in, then a gentle sway
+    var el = C.recording ? (ts - C.t0) / 1000 : 99;
+    if (C.recording) turn += el > 3.2 ? Math.sin((el - 3.2) * 1.1) * 0.22 : 0;
+    T.group.scale.setScalar(s); T.group.rotation.y = turn;
+    T.panels.forEach(function (p, i) {
+      var start = (i / Math.max(1, T.n)) * 2.6, k = Math.max(0, Math.min(1, (el - start) / 0.45));
+      var e = 1 - Math.pow(1 - k, 3);
+      p.visible = k > 0; p.position.y = (1 - e) * 4; p.scale.setScalar(0.6 + 0.4 * e);
+    });
+    placeSun();
+    T.r.render(T.scene, T.cam);
+    cx2.drawImage(T.r.domElement, 0, 0, W, H);
+    // brand strip: two lines so it never collides on narrow phones
+    var bh = Math.round(Math.max(H * 0.1, W * 0.09)), pad = bh * 0.3;
+    cx2.fillStyle = 'rgba(20,20,20,.9)'; cx2.fillRect(0, H - bh, W, bh);
+    cx2.textBaseline = 'middle'; cx2.textAlign = 'left';
+    cx2.fillStyle = '#E9F79A'; cx2.font = '800 ' + Math.round(bh * 0.34) + 'px "Bricolage Grotesque", Arial, sans-serif';
+    cx2.fillText(T.kw + ' kW solar on your roof', pad, H - bh * 0.66);
+    cx2.fillStyle = '#FDFBF7'; cx2.font = '600 ' + Math.round(bh * 0.22) + 'px Inter, Arial, sans-serif';
+    cx2.fillText('Wadhwa Solar   +91 70277 63605', pad, H - bh * 0.27);
+  }
+
+  function openCam(from) {
+    C.from = from; C.on = true;
+    [1, 2, 3, 4].forEach(function (i) { $('p' + i).hidden = true; });
+    $('p5').hidden = false; $('map').hidden = true; $('view3d').hidden = true; $('sunbar').classList.remove('on');
+    $('camWrap').classList.add('on'); $('hint').textContent = 'Point at your roof, or upload a photo';
+    $('cBillBox').classList.toggle('hide', !!(st.result && st.result.chosen));
+    if (!st.result) $('cBill').value = $('bill').value;
+    document.querySelector('.steps').classList.add('hide');
+    sizeCanvas(); buildArray(); sizeCanvas();
+    requestAnimationFrame(camLoop);
+  }
+  function stopStream() { if (C.stream) { C.stream.getTracks().forEach(function (t) { t.stop(); }); C.stream = null; } }
+  function closeCam() {
+    C.on = false; stopStream(); C.video.pause();
+    $('camWrap').classList.remove('on'); $('p5').hidden = true; document.querySelector('.steps').classList.remove('hide');
+    setStep(C.from);
+    if (C.from === 4) resize3d();
+  }
+  function showControls(yes) { $('c0').classList.toggle('hide', yes); $('c1').classList.toggle('hide', !yes); $('hint').textContent = yes ? 'Drag the panels onto your roof' : 'Point at your roof, or upload a photo'; }
+  $('camFrom1').onclick = function () { openCam(1); };
+  $('camFrom4').onclick = function () { openCam(4); };
+  $('camBack').onclick = closeCam;
+  $('camRetake').onclick = function () { stopStream(); C.src = null; C.img = null; $('c2').classList.add('hide'); showControls(false); $('camFreeze').textContent = 'Hold this view'; };
+
+  $('camLive').onclick = function () {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('m5').textContent = 'This browser cannot open the camera. Upload a photo instead.'; return; }
+    $('m5').textContent = 'Opening camera…';
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
+      .then(function (s) {
+        C.stream = s; C.video.srcObject = s; C.video.play(); C.src = 'video'; $('m5').textContent = '';
+        showControls(true); $('camFreeze').classList.remove('hide');
+      })
+      .catch(function () { $('m5').textContent = 'Camera permission was blocked. Allow it in your browser, or upload a photo.'; });
+  };
+  $('camFile').onchange = function (e) {
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    stopStream(); var url = URL.createObjectURL(f);
+    if (f.type.indexOf('video') === 0) {
+      C.video.srcObject = null; C.video.src = url; C.video.play(); C.src = 'video';
+      $('camFreeze').classList.remove('hide');
+    } else {
+      var im = new Image(); im.onload = function () { C.img = im; C.src = 'img'; }; im.src = url;
+      $('camFreeze').classList.add('hide');
+    }
+    showControls(true); e.target.value = '';
+  };
+  $('camFreeze').onclick = function () {
+    if (C.src === 'video' && C.video.readyState >= 2) {
+      var c = document.createElement('canvas'); c.width = C.video.videoWidth; c.height = C.video.videoHeight;
+      c.getContext('2d').drawImage(C.video, 0, 0); C.img = c; C.src = 'img'; stopStream(); C.video.pause();
+      $('camFreeze').classList.add('hide');
+    }
+  };
+  ['cSize', 'cTurn', 'cAngle'].forEach(function (id) { $(id).addEventListener('input', function () { $('cSizeO').textContent = ''; }); });
+  $('cBill').addEventListener('change', buildArray);
+
+  // drag + pinch on the canvas
+  var ray = new THREE.Raycaster(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3(), dragOff = null;
+  function groundAt(e) {
+    var b = cv.getBoundingClientRect();
+    ray.setFromCamera({ x: ((e.clientX - b.left) / b.width) * 2 - 1, y: -((e.clientY - b.top) / b.height) * 2 + 1 }, T.cam);
+    return ray.ray.intersectPlane(ground, hit) ? hit.clone() : null;
+  }
+  cv.addEventListener('pointerdown', function (e) {
+    if (!T || !C.src) return; cv.setPointerCapture(e.pointerId); C.pointers[e.pointerId] = e;
+    var ids = Object.keys(C.pointers);
+    if (ids.length === 2) { var a = C.pointers[ids[0]], b = C.pointers[ids[1]]; C.pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), s: +$('cSize').value }; dragOff = null; }
+    else { var p = groundAt(e); if (p) dragOff = p.sub(T.group.position); cv.style.cursor = 'grabbing'; }
+  });
+  cv.addEventListener('pointermove', function (e) {
+    if (!C.pointers[e.pointerId]) return; C.pointers[e.pointerId] = e;
+    var ids = Object.keys(C.pointers);
+    if (ids.length === 2 && C.pinch) {
+      var a = C.pointers[ids[0]], b = C.pointers[ids[1]], d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      $('cSize').value = Math.max(0.3, Math.min(3, C.pinch.s * d / C.pinch.d));
+    } else if (dragOff) { var p = groundAt(e); if (p) { T.group.position.set(p.x - dragOff.x, 0, p.z - dragOff.z); } }
+  });
+  function up(e) { delete C.pointers[e.pointerId]; if (Object.keys(C.pointers).length < 2) C.pinch = null; if (!Object.keys(C.pointers).length) { dragOff = null; cv.style.cursor = ''; } }
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  window.addEventListener('resize', function () { if (C.on) sizeCanvas(); });
+
+  // photo
+  function shareOrSave(blob, name, text) {
+    var file = new File([blob], name, { type: blob.type });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      return navigator.share({ files: [file], text: text }).catch(function () {});
+    }
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  }
+  $('camShot').onclick = function () {
+    cv.toBlob(function (b) { if (b) shareOrSave(b, 'wadhwa-solar-roof.jpg', 'My roof with solar — Wadhwa Solar'); }, 'image/jpeg', 0.92);
+  };
+
+  // video
+  function pickType() {
+    var t = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    for (var i = 0; i < t.length; i++) if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t[i])) return t[i];
+    return '';
+  }
+  $('camRec').onclick = function () {
+    if (C.recording) return;
+    if (!cv.captureStream || !window.MediaRecorder) { $('m6').textContent = 'This browser cannot record video. Use "Save photo" instead.'; return; }
+    var type = pickType(), stream = cv.captureStream(30), chunks = [];
+    var rec; try { rec = type ? new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 4000000 }) : new MediaRecorder(stream); }
+    catch (err) { $('m6').textContent = 'Recording is not supported here. Use "Save photo" instead.'; return; }
+    rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = function () {
+      C.recording = false; $('recBadge').classList.remove('on'); $('camRec').disabled = false; $('camRec').textContent = 'Make it again';
+      var mime = (rec.mimeType || type || 'video/webm').split(';')[0], ext = mime.indexOf('mp4') > -1 ? 'mp4' : 'webm';
+      C.blob = new Blob(chunks, { type: mime }); C.ext = ext;
+      var url = URL.createObjectURL(C.blob);
+      $('clip').src = url; $('clipSave').href = url; $('clipSave').download = 'wadhwa-solar-roof.' + ext;
+      $('c2').classList.remove('hide'); $('m6').textContent = '';
+    };
+    C.recording = true; C.t0 = performance.now(); $('recBadge').classList.add('on');
+    $('camRec').disabled = true; $('camRec').textContent = 'Recording…'; $('m6').textContent = 'Hold still for 8 seconds.';
+    rec.start(250);
+    setTimeout(function () { rec.stop(); stream.getTracks().forEach(function (t) { t.stop(); }); }, 8000);
+  };
+  $('clipShare').onclick = function () {
+    if (!C.blob) return;
+    shareOrSave(C.blob, 'wadhwa-solar-roof.' + C.ext, 'See solar on my roof! Designed with Wadhwa Solar — +91 70277 63605');
+  };
+
+  setStep(1);
+})();
+</script>
+</body>
+</html>
