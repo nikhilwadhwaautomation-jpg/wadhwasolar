@@ -8,7 +8,7 @@
 <link rel="icon" href="logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
 :root{
@@ -24,11 +24,23 @@ body{background:var(--paper);color:var(--ink);font:16px/1.5 var(--body);display:
 button,input,select{font:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--flame);outline-offset:2px}
 
-/* header */
-.top{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:3px solid var(--ink);background:var(--paper)}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
-.brand b{font-family:var(--display);font-weight:800;font-size:1.15rem;letter-spacing:-.02em;white-space:nowrap}
-.top .call{margin-left:auto;background:var(--ink);color:var(--lime);text-decoration:none;font-weight:600;padding:9px 14px;border:2px solid var(--ink);white-space:nowrap}
+/* header (same as the rest of the site) */
+.site-head{position:relative;z-index:900;background:var(--paper);border-bottom:3px solid var(--ink)}
+.head-in{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:10px 24px}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink)}
+.brand .nm{font-family:var(--display);font-size:1.1rem;font-weight:800;letter-spacing:-.02em;text-transform:uppercase;line-height:1.1;display:block}
+.brand .tg{display:block;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.7rem;color:var(--flame);margin-top:2px}
+.nav{display:flex;gap:22px;flex-wrap:wrap}
+.nav a{text-decoration:none;font-size:.9rem;font-weight:500;color:var(--muted);padding:3px 2px;border-bottom:2px solid transparent}
+.nav a:hover,.nav a.on{color:var(--ink);border-color:#D8F06A}
+.callbtn{background:var(--ink);color:var(--lime);font-weight:600;text-decoration:none;padding:10px 18px;white-space:nowrap;font-size:.9rem;border:2px solid var(--ink)}
+.callbtn .cshort{display:none}
+.menubtn{display:none;align-items:center;gap:5px;background:none;border:2px solid var(--ink);padding:9px 10px;cursor:pointer;flex-direction:column;justify-content:center}
+.menubtn span{display:block;width:20px;height:2px;background:var(--ink);transition:transform .2s ease,opacity .2s ease}
+.menubtn b{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.menubtn[aria-expanded=true] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.menubtn[aria-expanded=true] span:nth-child(2){opacity:0}
+.menubtn[aria-expanded=true] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
 
 /* layout */
 .app{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 400px;min-height:0}
@@ -142,21 +154,43 @@ details.manual summary{cursor:pointer;font-weight:600}
   .app{display:block}
   .side{overflow:visible}
   .stage{border-right:0;border-bottom:3px solid var(--ink);min-height:58vh}
-  .top{padding:10px 12px;gap:8px}
-  .top .call{padding:7px 9px;font-size:.82rem}
-  .brand b{font-size:1rem}
+  .head-in{flex-wrap:wrap;gap:10px;padding:8px 14px}
+  .brand{margin-right:auto}
+  .brand svg{width:32px;height:32px}
+  .menubtn{display:flex;order:2}
+  .callbtn{order:1;padding:9px 14px}
+  .nav{display:none;order:3;width:100%;flex-direction:column;gap:0;border-top:2px solid var(--ink);margin-top:4px}
+  .nav.open{display:flex}
+  .nav a{font-size:1.05rem;padding:14px 2px;border-bottom:1px solid var(--line)}
+  .nav a.on{border-bottom-color:var(--ink);font-weight:700}
   .hint span{font-size:.88rem;padding:6px 10px}
+}
+@media (max-width:420px){
+  .brand .tg{display:none}
+  .callbtn .cfull{display:none}
+  .callbtn .cshort{display:inline}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
-<header class="top">
-  <a class="brand" href="index.html" aria-label="Wadhwa Solar home">
-    <svg width="34" height="34" viewBox="0 0 140 140" aria-hidden="true"><circle cx="70" cy="71" r="40" fill="#FFD84D" stroke="#141414" stroke-width="6"/><g fill="none" stroke="#141414" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><path d="M45 54 L57 90 L70 66"/><path d="M70 66 L83 90 L95 54"/></g></svg>
-    <b>Wadhwa Solar</b>
-  </a>
-  <a class="call" href="tel:+917027763605">Call 70277 63605</a>
+<header class="site-head">
+  <div class="head-in">
+    <a class="brand" href="index.html">
+      <svg width="38" height="38" viewBox="0 0 140 140" aria-hidden="true"><g stroke="#141414" stroke-width="6" stroke-linecap="round" opacity=".9"><line x1="70" y1="6" x2="70" y2="20"/><line x1="70" y1="122" x2="70" y2="136"/><line x1="6" y1="71" x2="20" y2="71"/><line x1="122" y1="71" x2="136" y2="71"/><line x1="24" y1="25" x2="34" y2="35"/><line x1="106" y1="107" x2="116" y2="117"/><line x1="116" y1="25" x2="106" y2="35"/><line x1="34" y1="107" x2="24" y2="117"/></g><circle cx="70" cy="71" r="40" fill="#FFD84D"/><g fill="none" stroke="#141414" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><path d="M45 54 L57 90 L70 66"/><path d="M70 66 L83 90 L95 54"/></g></svg>
+      <span><span class="nm">Wadhwa Solar</span><span class="tg">make your roof pay the bijli bill</span></span>
+    </a>
+    <button class="menubtn" type="button" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span><b>Menu</b></button>
+    <nav class="nav" id="site-nav">
+      <a href="index.html">Home</a>
+      <a href="services.html">Services</a>
+      <a href="subsidy.html">Subsidy</a>
+      <a href="solar-3d.html" class="on" aria-current="page">3D Design</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+    <a class="callbtn" href="tel:+917027763605" aria-label="Call 70277 63605"><span class="cfull">Call 70277 63605</span><span class="cshort">Call</span></a>
+  </div>
 </header>
 
 <main class="app">
@@ -1108,6 +1142,15 @@ if (typeof module !== 'undefined') module.exports = WS;
     if (!C.blob) return;
     shareOrSave(C.blob, 'wadhwa-solar-roof.' + C.ext, 'See solar on my roof! Designed with Wadhwa Solar — +91 70277 63605');
   };
+
+  // mobile menu
+  (function () {
+    var b = document.querySelector('.menubtn'), n = $('site-nav');
+    b.addEventListener('click', function () {
+      var open = b.getAttribute('aria-expanded') !== 'true';
+      b.setAttribute('aria-expanded', open ? 'true' : 'false'); n.classList.toggle('open', open);
+    });
+  })();
 
   setStep(1);
 })();

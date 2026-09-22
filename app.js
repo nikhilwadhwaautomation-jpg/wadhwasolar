@@ -122,3 +122,14 @@
     });
   }
 })();
+
+// mobile menu
+(function () {
+  var b = document.querySelector('.menubtn'), n = document.getElementById('site-nav');
+  if (!b || !n) return;
+  b.addEventListener('click', function () {
+    var open = b.getAttribute('aria-expanded') !== 'true';
+    b.setAttribute('aria-expanded', open ? 'true' : 'false'); n.classList.toggle('open', open);
+  });
+  n.addEventListener('click', function (e) { if (e.target.tagName === 'A') { b.setAttribute('aria-expanded', 'false'); n.classList.remove('open'); } });
+})();
