@@ -114,7 +114,11 @@ details.manual summary{cursor:pointer;font-weight:600}
 
 /* leaflet tweaks */
 .leaflet-container{font:inherit;background:#CFCBC0}
-.vtx{background:var(--sun);border:3px solid var(--ink);width:16px!important;height:16px!important;margin:-8px 0 0 -8px!important}
+.vtx{background:var(--sun);border:3px solid var(--ink);width:18px!important;height:18px!important;margin:-9px 0 0 -9px!important;cursor:move;border-radius:50%}
+.vtx.first{background:var(--lime)}
+.len{background:rgba(20,20,20,.86);color:#FDFBF7;font:600 12px/1 Inter,sans-serif;padding:3px 6px;white-space:nowrap;width:auto!important;height:auto!important;border:0}
+.small{font-size:.86rem;color:var(--muted)}
+.grid3{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .vtx.first{background:var(--lime)}
 
 /* camera mode */
@@ -232,6 +236,18 @@ details.manual summary{cursor:pointer;font-weight:600}
         <button data-c="28.9931,77.0151">Sonipat</button><button data-c="28.4595,77.0266">Gurugram</button>
       </div>
       <p class="msg" id="m1" role="status"></p>
+      <details class="manual" style="margin-top:0;border-top:0;padding-top:0">
+        <summary>Roof not clear? Change the satellite picture</summary>
+        <div class="field" style="margin-top:10px">
+          <label for="tiles">Imagery</label>
+          <select class="in" id="tiles">
+            <option value="esri">Esri World Imagery (default)</option>
+            <option value="esriclarity">Esri Clarity — often sharper</option>
+            <option value="mapbox">Mapbox Satellite (needs a free token)</option>
+          </select>
+        </div>
+        <div class="field" id="tokBox" class="hide"><label for="tok">Mapbox token</label><input class="in" id="tok" placeholder="pk.eyJ1..."></div>
+      </details>
       <p>Zoom in until your roof fills the screen, then:</p>
       <button class="btn sun wide" id="found">This is my house — trace the roof</button>
       <button class="btn camera wide" id="camFrom1" style="margin-top:8px">Or use your camera on the roof</button>
@@ -249,7 +265,8 @@ details.manual summary{cursor:pointer;font-weight:600}
     <div class="pane" id="p2" hidden>
       <h2>Tap each corner of your roof</h2>
       <p>Go round the edge in order. Leave out the staircase room — you'll add it next.</p>
-      <div class="count" id="cnt">0</div><p>corners marked</p>
+      <div class="count" id="cnt">0</div><p>corners marked · <span id="areaNow">0 m²</span></p>
+      <p class="small">Each side shows its length in metres — check them against your roof. Drag any corner to fix it.</p>
       <div class="row">
         <button class="btn" id="undo">Undo last</button>
         <button class="btn" id="clear">Start again</button>
@@ -274,8 +291,18 @@ details.manual summary{cursor:pointer;font-weight:600}
         <label for="bill">Your monthly electricity bill (₹)</label>
         <input class="in" id="bill" type="number" min="500" max="100000" step="100" value="4000" inputmode="numeric">
       </div>
+      <details class="manual" open>
+        <summary>Roof details (better accuracy)</summary>
+        <div class="grid3" style="margin-top:12px">
+          <div class="field"><label for="parapet">Boundary wall height (m)</label><input class="in" id="parapet" type="number" min="0" max="3" step="0.1" value="0.9"></div>
+          <div class="field"><label for="floors">Floors in the house</label><input class="in" id="floors" type="number" min="1" max="6" step="1" value="2"></div>
+        </div>
+        <div class="ctl"><label for="azim">Panel direction <span id="azimO">South</span></label><input id="azim" type="range" min="-60" max="60" step="5" value="0"></div>
+        <button class="btn wide" id="autoAz">Auto-fit panels to this roof</button>
+        <p class="small" style="margin-top:8px">The wall around the roof shades the lowest panels, so its height matters. South facing gives the most units; turning the panels can fit more of them.</p>
+      </details>
       <button class="btn solid wide" id="build">Show my solar design</button>
-      <p style="margin-top:14px"><button class="link" id="back2">Redraw the roof</button></p>
+      <p style="margin-top:14px"><button class="link" id="editRoof">Edit roof corners</button> · <button class="link" id="back2">Start the roof again</button></p>
     </div>
 
     <!-- 4. result -->
@@ -288,6 +315,7 @@ details.manual summary{cursor:pointer;font-weight:600}
       <div class="stats">
         <div><span>Electricity made</span><span id="rUnits"></span></div>
         <div><span>Lost to shade</span><span id="rLoss"></span></div>
+        <div><span>Direction &amp; tilt</span><span id="rAz"></span></div>
         <div><span>Bill today → after</span><span id="rBill"></span></div>
         <div><span>Project cost</span><span id="rCost"></span></div>
         <div><span>Government subsidy</span><span id="rSub"></span></div>
@@ -357,7 +385,8 @@ var WS = (function () {
   var RAD = Math.PI / 180;
   var PANEL = { w: 1.134, l: 2.278, watt: 540 };   // portrait module, 540 Wp
   var TILT = 20, BASE_H = 0.5, SETBACK = 0.6, OBST_GAP = 0.4, COL_GAP = 0.02;
-  var UNITS_PER_KW_DAY = 4.5;
+  var UNITS_PER_KW_DAY = 4.5;          // Haryana yield at the optimal tilt, facing south
+  var PR_SHAPE = 1;
   // month shape for north India (avg = 1)
   var MONTH_F = [0.80, 0.94, 1.10, 1.20, 1.20, 1.05, 0.86, 0.86, 0.96, 1.02, 0.91, 0.80];
 
@@ -432,15 +461,39 @@ var WS = (function () {
 
   // ---------- panel layout ----------
   // lat decides row spacing (no row shades the next at winter noon)
-  function layout(poly, obstacles, lat) {
+  function rot(p, a) { var c = Math.cos(a), s2 = Math.sin(a); return { x: p.x * c - p.y * s2, y: p.x * s2 + p.y * c }; }
+  // parapet wall -> four thin boxes just inside the roof edge
+  // walk each edge in short steps so a diagonal wall is many small blocks, not one huge one
+  function parapetBoxes(poly, h) {
+    if (!h) return [];
+    var out = [], STEP = 0.8;
+    for (var i = 0; i < poly.length; i++) {
+      var a = poly[i], b = poly[(i + 1) % poly.length];
+      var len = Math.hypot(b.x - a.x, b.y - a.y), n = Math.max(1, Math.round(len / STEP));
+      for (var k = 0; k < n; k++) {
+        var t = (k + 0.5) / n;
+        out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, w: STEP + 0.3, d: STEP + 0.3, h: h, parapet: true });
+      }
+    }
+    return out;
+  }
+  function layout(poly, obstacles, lat, az) {
+    az = (az || 0) * Math.PI / 180;
     var D = PANEL.l * Math.cos(TILT * RAD);
     var rise = PANEL.l * Math.sin(TILT * RAD);
     var winterNoon = Math.max(20, 90 - lat - 23.44);
     var pitch = D + rise / Math.tan(winterNoon * RAD);
     var colW = PANEL.w + COL_GAP;
-    var xs = poly.map(function (p) { return p.x; }), ys = poly.map(function (p) { return p.y; });
+    var P2 = poly.map(function (p) { return rot(p, -az); });       // work in the array's own frame
+    var xs = P2.map(function (p) { return p.x; }), ys = P2.map(function (p) { return p.y; });
     var bx0 = Math.min.apply(null, xs), bx1 = Math.max.apply(null, xs), by0 = Math.min.apply(null, ys), by1 = Math.max.apply(null, ys);
-    var boxes = obstacles.map(function (o) { return obstBox(o, OBST_GAP); });
+    var boxes = obstacles.map(function (o) {
+      var c = rot({ x: o.x, y: o.y }, -az);
+      // rotated obstacle -> axis-aligned box that contains it (conservative)
+      var hw = (Math.abs(o.w * Math.cos(az)) + Math.abs(o.d * Math.sin(az))) / 2;
+      var hd = (Math.abs(o.w * Math.sin(az)) + Math.abs(o.d * Math.cos(az))) / 2;
+      return { x0: c.x - hw - OBST_GAP, x1: c.x + hw + OBST_GAP, y0: c.y - hd - OBST_GAP, y1: c.y + hd + OBST_GAP };
+    });
     var best = [];
     for (var ox = 0; ox < 3; ox++) for (var oy = 0; oy < 3; oy++) {
       var out = [];
@@ -448,14 +501,17 @@ var WS = (function () {
         for (var x = bx0 + SETBACK + ox * colW / 3; x + PANEL.w <= bx1; x += colW) {
           var r = { x0: x, x1: x + PANEL.w, y0: y, y1: y + D };
           var cs = [{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }, { x: r.x0, y: r.y1 }, { x: r.x1, y: r.y1 }];
-          var ok = cs.every(function (c) { return inPoly(c, poly) && minEdgeDist(c, poly) >= SETBACK - 1e-6; });
+          var ok = cs.every(function (c) { return inPoly(c, P2) && minEdgeDist(c, P2) >= SETBACK - 1e-6; });
           if (ok) ok = !boxes.some(function (b) { return rectsOverlap(r, b); });
-          if (ok) out.push({ x0: r.x0, x1: r.x1, y0: r.y0, y1: r.y1, cx: (r.x0 + r.x1) / 2, cy: (r.y0 + r.y1) / 2 });
+          if (ok) {
+            var c0 = rot({ x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2 }, az);
+            out.push({ x0: r.x0, x1: r.x1, y0: r.y0, y1: r.y1, cx: (r.x0 + r.x1) / 2, cy: (r.y0 + r.y1) / 2, wx: c0.x, wy: c0.y });
+          }
         }
       }
       if (out.length > best.length) best = out;
     }
-    return { panels: best, pitch: pitch, D: D, rise: rise };
+    return { panels: best, pitch: pitch, D: D, rise: rise, az: az };
   }
 
   // ---------- shading ----------
@@ -477,31 +533,79 @@ var WS = (function () {
     var k = lat.toFixed(2) + ',' + lon.toFixed(2);
     if (_sunCache[k]) return _sunCache[k];
     var s = [];
-    for (var m = 0; m < 12; m++) for (var h = 6; h <= 19; h += 0.5) {
+    for (var m = 0; m < 12; m++) for (var h = 5.5; h <= 19; h += 0.5) {
       var sp = sunPos(istMs(2026, m, 15, h), lat, lon);
-      if (sp.alt > 5) s.push({ v: sunVec(sp.alt, sp.az), w: Math.sin(sp.alt * RAD) * MONTH_F[m] });
+      // beam strength with air mass, so low winter sun is not over-counted
+      if (sp.alt > 6) s.push({ v: sunVec(sp.alt, sp.az), w: Math.pow(Math.sin(sp.alt * RAD), 1.15) * MONTH_F[m] });
     }
     return (_sunCache[k] = s);
   }
   // returns shade fraction (0..1) for each panel
   function shade(panels, obstacles, lat, lon, geo) {
-    var sun = yearSun(lat, lon), boxes = obstacles.map(function (o) { return obstBox(o, 0); });
-    var total = sun.reduce(function (a, s) { return a + s.w; }, 0);
+    var sun = yearSun(lat, lon), az = geo.az || 0;
+    // everything is checked in the array's frame, so rotate the obstacles and the sun into it
+    var boxes = obstacles.map(function (o) {
+      var c = rot({ x: o.x, y: o.y }, -az);
+      var hw = (Math.abs(o.w * Math.cos(az)) + Math.abs(o.d * Math.sin(az))) / 2;
+      var hd = (Math.abs(o.w * Math.sin(az)) + Math.abs(o.d * Math.cos(az))) / 2;
+      return { x0: c.x - hw, x1: c.x + hw, y0: c.y - hd, y1: c.y + hd, z0: 0, z1: o.h };
+    });
+    // each panel row is itself a shading object for the row behind it
+    panels.forEach(function (p) {
+      boxes.push({ x0: p.x0, x1: p.x1, y0: p.y0, y1: p.y1, z0: BASE_H, z1: BASE_H + geo.rise, self: p });
+    });
+    var sunR = sun.map(function (s) {
+      var v = rot({ x: s.v.x, y: s.v.y }, -az);
+      return { v: { x: v.x, y: v.y, z: s.v.z }, w: s.w };
+    });
+    // weight each moment by the energy actually landing on the tilted panel
+    var tr = TILT * RAD, nrm = { x: 0, y: -Math.sin(tr), z: Math.cos(tr) };
+    sunR = sunR.map(function (s) {
+      var c = s.v.x * nrm.x + s.v.y * nrm.y + s.v.z * nrm.z;
+      return { v: s.v, w: s.w * Math.max(0, c) };
+    }).filter(function (s) { return s.w > 0.0005; });
+    var total = sunR.reduce(function (a, s) { return a + s.w; }, 0);
     return panels.map(function (p) {
-      // 3 sample points up the slope (south edge low, north edge high)
-      var pts = [0.15, 0.5, 0.85].map(function (f) {
-        return { x: p.cx, y: p.y0 + f * geo.D, z: BASE_H + f * geo.rise };
+      var pts = [];
+      [0.12, 0.5, 0.88].forEach(function (f) {
+        [0.15, 0.5, 0.85].forEach(function (g) {
+          pts.push({ x: p.x0 + g * (p.x1 - p.x0), y: p.y0 + f * geo.D, z: BASE_H + f * geo.rise + 0.02 });
+        });
       });
+      var sun = sunR;
       var lost = 0;
       for (var i = 0; i < sun.length; i++) {
         var hit = 0;
         for (var j = 0; j < pts.length; j++) {
-          for (var k = 0; k < boxes.length; k++) if (rayHitsBox(pts[j], sun[i].v, boxes[k])) { hit++; break; }
+          for (var k = 0; k < boxes.length; k++) {
+            if (boxes[k].self === p) continue;
+            // modules beside it in the same row are in the same plane — they cannot shade it
+            if (boxes[k].self && Math.abs(boxes[k].y0 - p.y0) < 0.05) continue;
+            if (rayHitsBox(pts[j], sun[i].v, boxes[k])) { hit++; break; }
+          }
         }
         lost += sun[i].w * hit / pts.length;
       }
       return boxes.length ? lost / total : 0;
     });
+  }
+
+  // plane-of-array factor: this tilt/azimuth vs the optimal tilt facing south
+  function poaFactor(lat, lon, tiltDeg, azDeg) {
+    var sun = yearSun(lat, lon);
+    function collect(t, a) {
+      var tr = t * RAD, ar = a * RAD;
+      var n = { x: Math.sin(tr) * Math.sin(ar), y: -Math.sin(tr) * Math.cos(ar), z: Math.cos(tr) };  // +az = west
+      var s = 0;
+      for (var i = 0; i < sun.length; i++) {
+        var v = sun[i].v, c = v.x * n.x + v.y * n.y + v.z * n.z;
+        if (c > 0) s += sun[i].w * c;
+      }
+      return s;
+    }
+    var best = 0, bestT = 20;
+    for (var t = 5; t <= 40; t += 5) { var c = collect(t, 0); if (c > best) { best = c; bestT = t; } }
+    return { f: collect(tiltDeg, azDeg) / best, bestTilt: bestT };
   }
 
   // ---------- money (same rules as the website calculator) ----------
@@ -520,9 +624,13 @@ var WS = (function () {
   }
 
   // ---------- full design ----------
-  function design(poly, obstacles, lat, lon, bill) {
-    var geo = layout(poly, obstacles, lat);
-    var sh = shade(geo.panels, obstacles, lat, lon, geo);
+  function design(poly, obstacles, lat, lon, bill, opt) {
+    opt = opt || {};
+    var az = opt.az || 0, parapet = opt.parapet == null ? 0.9 : opt.parapet;
+    // the wall shades panels but must not block placement — the edge setback already handles that
+    var wall = parapetBoxes(poly, parapet);
+    var geo = layout(poly, obstacles, lat, az);
+    var sh = shade(geo.panels, obstacles.concat(wall), lat, lon, geo);
     geo.panels.forEach(function (p, i) { p.shade = sh[i]; });
     var usable = geo.panels.filter(function (p) { return p.shade <= 0.2; })
       .sort(function (a, b) { return a.shade - b.shade; });
@@ -532,20 +640,21 @@ var WS = (function () {
     chosen.forEach(function (p) { p.used = true; });
     var kw = +(chosen.length * PANEL.watt / 1000).toFixed(2);
     var loss = chosen.length ? chosen.reduce(function (a, p) { return a + p.shade; }, 0) / chosen.length : 0;
-    var unitsMonth = kw * UNITS_PER_KW_DAY * 30.4 * (1 - loss);
+    var poa = poaFactor(lat, lon, TILT, az);
+    var unitsMonth = kw * UNITS_PER_KW_DAY * poa.f * 30.4 * (1 - loss);
     var billAfter = Math.max(bill - unitsMonth * 8, bill * 0.08);
     var f = finance(kw, bill);
     return {
       geo: geo, panels: geo.panels, chosen: chosen.length, fit: usable.length, all: geo.panels.length,
       maxKw: +(usable.length * PANEL.watt / 1000).toFixed(2), needKw: needKw, kw: kw,
       loss: loss, unitsMonth: unitsMonth, unitsYear: unitsMonth * 12, billAfter: billAfter,
-      area: polyArea(poly), finance: f,
+      area: polyArea(poly), finance: f, az: az, parapet: parapet, poa: poa.f, bestTilt: poa.bestTilt,
       payback: f.net / Math.max(1, (bill - billAfter) * 12)
     };
   }
 
   return { PANEL: PANEL, TILT: TILT, BASE_H: BASE_H, MONTH_F: MONTH_F, makeFrame: makeFrame, sunPos: sunPos, istMs: istMs,
-           sunVec: sunVec, layout: layout, shade: shade, design: design, finance: finance, money: money, kwForBill: kwForBill, polyArea: polyArea };
+           sunVec: sunVec, layout: layout, shade: shade, design: design, poaFactor: poaFactor, parapetBoxes: parapetBoxes, finance: finance, money: money, kwForBill: kwForBill, polyArea: polyArea };
 })();
 if (typeof module !== 'undefined') module.exports = WS;
 
@@ -566,10 +675,37 @@ if (typeof module !== 'undefined') module.exports = WS;
 
   // ---------- map ----------
   var map = L.map('map', { zoomControl: true, maxZoom: 21 }).setView([29.3909, 76.9635], 17);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxNativeZoom: 19, maxZoom: 21,
-    attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics'
-  }).addTo(map);
+  var TILES = {
+    esri: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', max: 19, att: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' },
+    esriclarity: { url: 'https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', max: 20, att: 'Imagery &copy; Esri Clarity' },
+    mapbox: { url: 'https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}@2x?access_token=', max: 22, att: 'Imagery &copy; Mapbox &copy; Maxar' }
+  };
+  var tileLayer = null;
+  function setTiles(kind) {
+    var t = TILES[kind] || TILES.esri, url = t.url;
+    if (kind === 'mapbox') {
+      var tok = ($('tok').value || localStorage.getItem('ws_mapbox') || '').trim();
+      if (!tok) { $('m1').textContent = 'Paste a free Mapbox token to use that imagery.'; return; }
+      try { localStorage.setItem('ws_mapbox', tok); } catch (e) {}
+      url += tok;
+    }
+    if (tileLayer) map.removeLayer(tileLayer);
+    tileLayer = L.tileLayer(url, { maxNativeZoom: t.max, maxZoom: 22, tileSize: kind === 'mapbox' ? 512 : 256, zoomOffset: kind === 'mapbox' ? -1 : 0, attribution: t.att }).addTo(map);
+    // if that source refuses to load, fall back to the default so the map is never blank
+    var bad = 0;
+    tileLayer.on('tileerror', function () {
+      if (kind === 'esri' || ++bad < 6) return;
+      $('m1').textContent = 'That imagery is not available here, so the default is back.';
+      $('tiles').value = 'esri'; setTiles('esri');
+    });
+  }
+  setTiles('esri');
+  $('tiles').onchange = function () {
+    $('tokBox').classList.toggle('hide', this.value !== 'mapbox');
+    setTiles(this.value);
+  };
+  $('tok').addEventListener('change', function () { if ($('tiles').value === 'mapbox') setTiles('mapbox'); });
+  try { if (localStorage.getItem('ws_mapbox')) $('tok').value = localStorage.getItem('ws_mapbox'); } catch (e) {}
   var layer = L.layerGroup().addTo(map), obstLayer = L.layerGroup().addTo(map);
 
   function setStep(n) {
@@ -657,20 +793,46 @@ if (typeof module !== 'undefined') module.exports = WS;
   };
 
   // ---------- step 2 ----------
+  function sideLen(a, b) {
+    var f = st.frame || WS.makeFrame(a.lat, a.lng);
+    var p = f.toXY(a.lat, a.lng), q = f.toXY(b.lat, b.lng);
+    return Math.hypot(p.x - q.x, p.y - q.y);
+  }
   function drawRoof() {
     layer.clearLayers();
     var ll = st.pts.map(function (p) { return [p.lat, p.lng]; });
     if (ll.length > 1) L.polygon(ll, { color: '#FFD84D', weight: 3, fillColor: '#E9F79A', fillOpacity: .25, dashArray: st.step === 2 ? '6 6' : null }).addTo(layer);
-    if (st.step === 2) ll.forEach(function (p, i) {
-      L.marker(p, { icon: L.divIcon({ className: 'vtx' + (i === 0 ? ' first' : ''), iconSize: [16, 16] }), interactive: false }).addTo(layer);
-    });
+    if (st.step === 2) {
+      st.pts.forEach(function (p, i) {
+        var m = L.marker(p, { icon: L.divIcon({ className: 'vtx' + (i === 0 ? ' first' : ''), iconSize: [18, 18] }), draggable: true, title: 'Drag to fix this corner' }).addTo(layer);
+        m.on('drag', function (e) { st.pts[i] = e.target.getLatLng(); redrawShape(); });
+        m.on('dragend', function () { drawRoof(); });
+      });
+      // side lengths
+      var n = st.pts.length;
+      for (var i = 0; i < n; i++) {
+        if (n < 3 && i === n - 1) break;
+        var a = st.pts[i], b = st.pts[(i + 1) % n], d = sideLen(a, b);
+        L.marker([(a.lat + b.lat) / 2, (a.lng + b.lng) / 2], { interactive: false,
+          icon: L.divIcon({ className: 'len', html: d.toFixed(1) + ' m', iconSize: null }) }).addTo(layer);
+      }
+    }
     $('cnt').textContent = st.pts.length;
+    var f = st.frame;
+    if (f && st.pts.length >= 3) $('areaNow').textContent = Math.round(WS.polyArea(st.pts.map(function (p) { return f.toXY(p.lat, p.lng); }))) + ' m²';
+    else $('areaNow').textContent = '0 m²';
     $('roofDone').disabled = st.pts.length < 3;
+  }
+  var liveShape = null;
+  function redrawShape() {
+    if (liveShape) map.removeLayer(liveShape);
+    liveShape = L.polygon(st.pts.map(function (p) { return [p.lat, p.lng]; }), { color: '#C2410C', weight: 3, fill: false, interactive: false }).addTo(map);
   }
   $('undo').onclick = function () { st.pts.pop(); drawRoof(); };
   $('clear').onclick = function () { st.pts = []; drawRoof(); };
   $('back1').onclick = function () { st.pts = []; layer.clearLayers(); setStep(1); };
-  $('roofDone').onclick = function () { finishRoof(); };
+  $('roofDone').onclick = function () { if (liveShape) { map.removeLayer(liveShape); liveShape = null; } finishRoof(); };
+  $('editRoof').onclick = function () { setStep(2); drawRoof(); };
   function finishRoof() {
     var poly = st.pts.map(function (p) { return st.frame.toXY(p.lat, p.lng); });
     var area = WS.polyArea(poly);
@@ -715,12 +877,33 @@ if (typeof module !== 'undefined') module.exports = WS;
     }
   });
   $('back2').onclick = function () { st.obst = []; drawObst(); st.pts = []; setStep(2); drawRoof(); };
+  function opts() {
+    return { az: +$('azim').value || 0, parapet: Math.min(3, Math.max(0, +$('parapet').value || 0)) };
+  }
+  function azLabel(a) {
+    var d = Math.abs(a);
+    return a === 0 ? 'South' : (d + '° ' + (a > 0 ? 'towards west' : 'towards east'));
+  }
+  $('azim').addEventListener('input', function () { $('azimO').textContent = azLabel(+this.value); });
+  $('autoAz').onclick = function () {
+    var c = st.frame, bill = +$('bill').value || 4000, o = opts(), best = null;
+    $('autoAz').textContent = 'Checking…'; $('autoAz').disabled = true;
+    setTimeout(function () {
+      for (var a = -60; a <= 60; a += 10) {
+        var d = WS.design(st.poly, st.obst, c.lat0, c.lng0, bill, { az: a, parapet: o.parapet });
+        var score = d.unitsMonth + d.maxKw * 4;          // output first, then room to grow
+        if (!best || score > best.score) best = { a: a, score: score };
+      }
+      $('azim').value = best.a; $('azimO').textContent = azLabel(best.a);
+      $('autoAz').textContent = 'Auto-fit panels to this roof'; $('autoAz').disabled = false;
+    }, 30);
+  };
   $('build').onclick = function () {
     var bill = Math.min(100000, Math.max(500, +$('bill').value || 4000));
     $('bill').value = bill;
-    var c = st.frame;
-    st.result = WS.design(st.poly, st.obst, c.lat0, c.lng0, bill);
-    st.result.bill = bill;
+    var c = st.frame, o = opts();
+    st.result = WS.design(st.poly, st.obst, c.lat0, c.lng0, bill, o);
+    st.result.bill = bill; st.result.opt = o;
     showResult(); setStep(4); build3d();
   };
   $('edit').onclick = function () { setStep(3); drawRoof(); drawObst(); };
@@ -737,6 +920,7 @@ if (typeof module !== 'undefined') module.exports = WS;
     $('rNote').innerHTML = note;
     $('rUnits').textContent = '~' + Math.round(r.unitsMonth).toLocaleString('en-IN') + ' units a month';
     $('rLoss').textContent = (r.loss * 100).toFixed(1) + '%';
+    $('rAz').textContent = azLabel(r.az) + ' · ' + WS.TILT + '° tilt' + (r.poa < 0.97 ? ' (' + Math.round((1 - r.poa) * 100) + '% below south)' : '');
     $('rBill').textContent = M(r.bill) + ' → ~' + M(r.billAfter);
     $('rCost').textContent = M(f.cost);
     $('rSub').textContent = r.kw > 10 ? 'Not applicable above 10 kW' : M(f.sub);
@@ -790,7 +974,7 @@ if (typeof module !== 'undefined') module.exports = WS;
     }
     var scene = new THREE.Scene(); R.scene = scene;
     scene.background = new THREE.Color(0xE4ECEF); scene.fog = new THREE.Fog(0xE4ECEF, 120, 420);
-    var r = st.result, poly = st.poly, H = 3.2;
+    var r = st.result, poly = st.poly, H = Math.max(1, Math.min(6, +$('floors').value || 2)) * 3.1;
     var xs = poly.map(function (p) { return p.x; }), ys = poly.map(function (p) { return p.y; });
     var cx = (Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2, cy = (Math.min.apply(null, ys) + Math.max.apply(null, ys)) / 2;
     var span = Math.max(Math.max.apply(null, xs) - Math.min.apply(null, xs), Math.max.apply(null, ys) - Math.min.apply(null, ys), 8);
@@ -816,6 +1000,18 @@ if (typeof module !== 'undefined') module.exports = WS;
     bld.rotation.x = -Math.PI / 2; bld.castShadow = true; bld.receiveShadow = true; scene.add(bld);
     var edge = new THREE.LineSegments(new THREE.EdgesGeometry(bld.geometry), new THREE.LineBasicMaterial({ color: 0x141414 }));
     edge.rotation.x = -Math.PI / 2; scene.add(edge);
+
+    // parapet wall
+    if (r.parapet > 0.05) {
+      var pm = new THREE.MeshLambertMaterial({ color: 0xE6E0D4 });
+      for (var i = 0; i < poly.length; i++) {
+        var a = poly[i], b2 = poly[(i + 1) % poly.length];
+        var len = Math.hypot(b2.x - a.x, b2.y - a.y), ang = Math.atan2(b2.y - a.y, b2.x - a.x);
+        var w = new THREE.Mesh(new THREE.BoxGeometry(len + 0.22, r.parapet, 0.22), pm);
+        w.position.set((a.x + b2.x) / 2, H + r.parapet / 2, -(a.y + b2.y) / 2);
+        w.rotation.y = ang; w.castShadow = true; w.receiveShadow = true; scene.add(w);
+      }
+    }
 
     // obstacles
     st.obst.forEach(function (o) {
@@ -847,14 +1043,17 @@ if (typeof module !== 'undefined') module.exports = WS;
     var mFree = new THREE.MeshLambertMaterial({ color: 0xE9F79A, transparent: true, opacity: .55 });
     var mShade = new THREE.MeshLambertMaterial({ color: 0xF2A38A, transparent: true, opacity: .6 });
     var gLeg = new THREE.BoxGeometry(0.05, 1, 0.05), mLeg = new THREE.MeshLambertMaterial({ color: 0x8C8C8C });
+    var azRad = (r.az || 0) * Math.PI / 180;
     r.panels.forEach(function (p) {
       var used = !!p.used, mat = used ? mUsed : (p.shade > 0.2 ? mShade : mFree);
+      var unit = new THREE.Group();
+      unit.position.set(p.wx, H, -p.wy); unit.rotation.y = azRad;
       var mesh = new THREE.Mesh(gPanel, mat);
-      mesh.rotation.x = tilt;
-      mesh.position.set(p.cx, H + WS.BASE_H + rise / 2, -(p.y0 + D / 2));
-      mesh.castShadow = used; mesh.receiveShadow = true; scene.add(mesh);
-      if (used) [[p.x0 + 0.1, p.y0 + 0.05, WS.BASE_H], [p.x1 - 0.1, p.y0 + 0.05, WS.BASE_H], [p.x0 + 0.1, p.y1 - 0.05, WS.BASE_H + rise], [p.x1 - 0.1, p.y1 - 0.05, WS.BASE_H + rise]]
-        .forEach(function (l) { var g = new THREE.Mesh(gLeg, mLeg); g.scale.y = l[2]; g.position.set(l[0], H + l[2] / 2, -l[1]); scene.add(g); });
+      mesh.rotation.x = tilt; mesh.position.y = WS.BASE_H + rise / 2;
+      mesh.castShadow = used; mesh.receiveShadow = true; unit.add(mesh);
+      if (used) [[-P.w / 2 + 0.1, -D / 2 + 0.05, WS.BASE_H], [P.w / 2 - 0.1, -D / 2 + 0.05, WS.BASE_H], [-P.w / 2 + 0.1, D / 2 - 0.05, WS.BASE_H + rise], [P.w / 2 - 0.1, D / 2 - 0.05, WS.BASE_H + rise]]
+        .forEach(function (l) { var g = new THREE.Mesh(gLeg, mLeg); g.scale.y = l[2]; g.position.set(l[0], l[2] / 2, -l[1]); g.castShadow = true; unit.add(g); });
+      scene.add(unit);
     });
 
     // north arrow
